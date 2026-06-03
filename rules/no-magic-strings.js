@@ -23,14 +23,22 @@ const EQUALITY_OPERATORS = new Set(["===", "!==", "==", "!="]);
 const NEXT_FONT_IMPORT_SOURCE_PREFIX = "next/font/";
 const SVG_ELEMENT_NAMES = new Set([
   "circle",
+  "clipPath",
+  "defs",
   "ellipse",
   "g",
   "line",
+  "linearGradient",
   "path",
   "polygon",
   "polyline",
   "rect",
+  "stop",
   "svg",
+  "text",
+  "textPath",
+  "title",
+  "tspan",
 ]);
 
 const DEFAULT_SINK_CALLEES = [
@@ -212,6 +220,18 @@ function isSvgElementName(nameNode) {
   return nameNode?.type === "JSXIdentifier" && SVG_ELEMENT_NAMES.has(nameNode.name);
 }
 
+function isSvgRootElementName(nameNode) {
+  return nameNode?.type === "JSXIdentifier" && nameNode.name === "svg";
+}
+
+function isFunctionBoundary(node) {
+  return (
+    node.type === "ArrowFunctionExpression" ||
+    node.type === "FunctionDeclaration" ||
+    node.type === "FunctionExpression"
+  );
+}
+
 function isInsideSvgOpeningElement(node) {
   let current = node;
 
@@ -240,6 +260,17 @@ function isSvgMarkupLiteral(node) {
 
     if (!parent) {
       return false;
+    }
+
+    if (isFunctionBoundary(parent)) {
+      return false;
+    }
+
+    if (
+      parent.type === "JSXElement" &&
+      isSvgRootElementName(parent.openingElement?.name)
+    ) {
+      return true;
     }
 
     if (parent.type === "JSXAttribute" && isInsideSvgOpeningElement(parent)) {

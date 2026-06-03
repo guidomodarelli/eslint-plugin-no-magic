@@ -48,6 +48,10 @@ ruleTester.run("no-magic-strings", rule, {
       code: '<svg viewBox="0 0 24 24"><path d="M8 4h8" /></svg>;',
       filename: "icon.tsx",
     },
+    {
+      code: 'const frame = <svg aria-label="Invitación free" role="img" viewBox="0 0 40 40"><title>{"Invitación free"}</title><defs><linearGradient id={`free-ring-gradient-${frameId}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--free)" /><stop offset="100%" stopColor="var(--free-strong)" /></linearGradient><path id={`free-ring-text-${frameId}`} d="M2.13 15.21 A18.5 18.5 0 0 0 24.79 37.87" fill="none" /><clipPath id={`free-ring-clip-${frameId}`}><circle cx={20} cy={20} r={20} /></clipPath></defs><g clipPath={`url(#free-ring-clip-${frameId})`}><path d={isFree ? "M3.58 15.6 A17 17 0 0 0 24.4 36.42" : "M2.13 15.21 A18.5 18.5 0 0 0 24.79 37.87"} stroke={`url(#free-ring-gradient-${frameId})`} /><text><textPath href={`#free-ring-text-${frameId}`} startOffset="50%" textAnchor="middle">{"FREE"}</textPath></text></g></svg>;',
+      filename: "avatar-frame.tsx",
+    },
 
     // Module system sources are contracts owned by the bundler.
     { code: 'import { Button } from "@/components/ui/button";' },
@@ -167,6 +171,11 @@ ruleTester.run("no-magic-strings", rule, {
     {
       code: "const node = <button onClick={() => router.push(\"/-/crear\")}>Abrir</button>;",
       filename: "component.tsx",
+      errors: [noMagicString],
+    },
+    {
+      code: 'const node = <svg onClick={() => router.push("/-/crear")}><path d="M8 4h8" /></svg>;',
+      filename: "icon.tsx",
       errors: [noMagicString],
     },
 

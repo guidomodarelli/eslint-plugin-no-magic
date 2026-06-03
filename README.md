@@ -17,10 +17,10 @@ string only when it is one of:
 - or **duplicated** across the file at or above a configurable threshold.
 
 Everything else is ignored by default: JSX attribute values, visible JSX copy,
-inline SVG markup, `import`/`export` sources, runtime directives
-(`"use client"`), `typeof` comparison vocabulary, object keys, property-name
-access, TypeScript literal-union types, `enum` member initializers, extracted
-`const` definitions, and `next/font` loader options.
+structural literals inside inline SVG markup, `import`/`export` sources, runtime
+directives (`"use client"`), `typeof` comparison vocabulary, object keys,
+property-name access, TypeScript literal-union types, `enum` member
+initializers, extracted `const` definitions, and `next/font` loader options.
 
 ## Install
 
