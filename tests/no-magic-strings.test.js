@@ -1,4 +1,5 @@
-import { describe, it } from "node:test";
+/** @file Exercises public rule behavior through the real ESLint RuleTester. */
+import { describe, it } from "vitest";
 
 import { RuleTester } from "eslint";
 import tsParser from "@typescript-eslint/parser";
@@ -24,6 +25,20 @@ const duplicateString = { messageId: "duplicateString" };
 
 ruleTester.run("no-magic-strings", rule, {
   valid: [
+    { code: 'input.replace("hello", "goodbye"); items.push("Visible copy");' },
+    {
+      code: 'client.send(key, "payload"); other.send("contract");',
+      options: [{ sinks: [{ callee: "client.send", argumentIndex: 0 }] }],
+    },
+    { code: 'label("pending"); label("pending"); label("pending");', options: [{ minDuplicates: 0 }] },
+    { code: 'label("A"); label("A"); label("A");' },
+    { code: 'typeof input === ("string" as const); typeof input === `string`;' },
+    { code: 'status === "A";', options: [{ ignoreStrings: ["A"] }] },
+    {
+      code: 'import { Font as loadFont } from "next/font/google"; loadFont({ subsets: ["latin", "latin", "latin"] });',
+    },
+    { code: 'const STATES = { blocked: "blocked" } satisfies Record<string, string>;' },
+
     // Property-existence check: the literal names a property, not a value.
     { code: 'const allowed = "status" in payload;' },
 
@@ -109,6 +124,57 @@ ruleTester.run("no-magic-strings", rule, {
     },
   ],
   invalid: [
+    {
+      code: 'const node = <Button disabled={status === "blocked"} />;',
+      filename: "component.tsx",
+      errors: [noMagicString],
+    },
+    {
+      code: 'const node = <svg>{status === "blocked" && <path />}</svg>;',
+      filename: "component.tsx",
+      errors: [noMagicString],
+    },
+    {
+      code: 'const node = <Button value={getItem("auth.token")} />;',
+      filename: "component.tsx",
+      errors: [noMagicString],
+    },
+    { code: 'status === ("blocked" as const);', errors: [noMagicString] },
+    { code: 'status === ("blocked" satisfies string);', errors: [noMagicString] },
+    { code: 'status === <string>"blocked";', filename: "example.ts", errors: [noMagicString] },
+    { code: 'dispatch({type: "cart/add"} as const);', errors: [noMagicString] },
+    { code: 'dispatch({type: "cart/add" as const} satisfies Action);', errors: [noMagicString] },
+    { code: 'localStorage.getItem("auth.token" as string);', errors: [noMagicString] },
+    { code: 'router.replace("/checkout", "presentation");', errors: [noMagicString] },
+    { code: 'router?.push("/checkout");', errors: [noMagicString] },
+    { code: 'router["push"]("/checkout");', errors: [noMagicString] },
+    {
+      code: 'client.send("contract", "payload");',
+      options: [{ sinks: [{ callee: "client.send", argumentIndex: 0 }] }],
+      errors: [noMagicString],
+    },
+    {
+      code: 'client.send("payload", "contract");',
+      options: [{ sinks: [{ callee: "client.send", argumentIndex: 1 }] }],
+      errors: [noMagicString],
+    },
+    {
+      code: 'items.push("legacy");',
+      options: [{ sinks: ["push"] }],
+      errors: [noMagicString],
+    },
+    {
+      code: 'status === "pending"; label("pending"); label("pending");',
+      errors: [noMagicString,
+        { messageId: "duplicateString", data: { value: "pending", count: "3" } },
+        { messageId: "duplicateString", data: { value: "pending", count: "3" } }],
+    },
+    { code: 'status === "A"; dispatch({type: "B"}); router.push("/");', errors: [noMagicString, noMagicString, noMagicString] },
+    {
+      code: 'import { Font } from "next/font/google"; function render(Font) { Font("contract"); Font("contract"); Font("contract"); }',
+      errors: [duplicateString, duplicateString, duplicateString],
+    },
+
     // Equality / inequality comparisons against domain values.
     {
       code: 'function resolve(status: string) { return status === "hidden"; }',

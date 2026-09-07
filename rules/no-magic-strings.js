@@ -41,6 +41,7 @@ const SVG_ELEMENT_NAMES = new Set([
   "tspan",
 ]);
 
+/** Default contract calls; routing requires an explicit receiver. */
 const DEFAULT_SINK_CALLEES = [
   "track",
   "trackEvent",
@@ -54,8 +55,8 @@ const DEFAULT_SINK_CALLEES = [
   "isEnabled",
   "getFlag",
   "navigate",
-  "push",
-  "replace",
+  { callee: "router.push", argumentIndex: 0 },
+  { callee: "router.replace", argumentIndex: 0 },
 ];
 const DEFAULT_ACTION_TYPE_CALLEES = ["dispatch"];
 const DEFAULT_ACTION_TYPE_PROPERTY = "type";
@@ -114,48 +115,35 @@ function getPropertyKeyName(property) {
   return null;
 }
 
-function isImportedFromNextFont(callExpression, calleeName) {
-  let current = callExpression;
-
-  while (current) {
-    const parent = getParent(current);
-
-    if (!parent) {
-      return false;
+/**
+ * Resolves the nearest binding instead of matching shadowed import names.
+ * @param {object} callExpression - Loader call to resolve.
+ * @param {string} calleeName - Local identifier used by the call.
+ * @param {object} sourceCode - ESLint source and scope information.
+ * @returns {boolean} Whether the binding belongs to next/font.
+ */
+function isImportedFromNextFont(callExpression, calleeName, sourceCode) {
+  let scope = sourceCode.getScope(callExpression);
+  while (scope) {
+    const variable = scope.set.get(calleeName);
+    if (variable) {
+      return variable.defs.some((definition) =>
+        definition.type === "ImportBinding" &&
+        definition.parent?.source?.value?.startsWith(NEXT_FONT_IMPORT_SOURCE_PREFIX)
+      );
     }
-
-    current = parent;
-
-    if (current.type !== "Program") {
-      continue;
-    }
-
-    return current.body.some((statement) => {
-      if (statement.type !== "ImportDeclaration") {
-        return false;
-      }
-
-      if (!statement.source.value.startsWith(NEXT_FONT_IMPORT_SOURCE_PREFIX)) {
-        return false;
-      }
-
-      return statement.specifiers.some((specifier) => {
-        if (
-          specifier.type === "ImportSpecifier" ||
-          specifier.type === "ImportDefaultSpecifier"
-        ) {
-          return specifier.local.name === calleeName;
-        }
-
-        return false;
-      });
-    });
+    scope = scope.upper;
   }
-
   return false;
 }
 
-function isInsideNextFontLoaderCall(node) {
+/**
+ * Checks whether a literal belongs to a resolved next/font call.
+ * @param {*} node - Literal or enclosing expression.
+ * @param {*} sourceCode - ESLint source and scope information.
+ * @returns {*} Whether loader options are exempt.
+ */
+function isInsideNextFontLoaderCall(node, sourceCode) {
   let current = node;
 
   while (current) {
@@ -170,7 +158,7 @@ function isInsideNextFontLoaderCall(node) {
       parent.arguments.includes(current) &&
       parent.callee.type === "Identifier"
     ) {
-      return isImportedFromNextFont(parent, parent.callee.name);
+      return isImportedFromNextFont(parent, parent.callee.name, sourceCode);
     }
 
     current = parent;
@@ -301,14 +289,20 @@ function isImportOrExportSource(node) {
   );
 }
 
-function isTypeofComparisonLiteral(node) {
+/**
+ * Recognizes standardized typeof vocabulary through transparent wrappers.
+ * @param {*} node - Runtime expression after wrappers.
+ * @param {*} value - Evaluated string value.
+ * @returns {*} Whether the comparison uses typeof vocabulary.
+ */
+function isTypeofComparisonLiteral(node, value = node.value) {
   const parent = getParent(node);
 
   if (parent?.type !== "BinaryExpression") {
     return false;
   }
 
-  if (!TYPEOF_RESULT_LITERALS.has(node.value)) {
+  if (!TYPEOF_RESULT_LITERALS.has(value)) {
     return false;
   }
 
@@ -407,18 +401,48 @@ function isSwitchCaseTest(node) {
   return parent?.type === "SwitchCase" && parent.test === node;
 }
 
-function isKnownSinkArgument(node, sinkCallees) {
-  const parent = getParent(node);
-
-  if (parent?.type !== "CallExpression" || !parent.arguments.includes(node)) {
-    return false;
+/**
+ * Builds a static receiver path, including optional and computed member access.
+ * @param {object} node - Callee expression.
+ * @returns {string|null} Static path or null for dynamic expressions.
+ */
+function getCalleePath(node) {
+  if (node.type === "Identifier") return node.name;
+  if (node.type === "MemberExpression") {
+    const receiver = getCalleePath(node.object);
+    const property = node.computed
+      ? (typeof node.property.value === "string" ? node.property.value : null)
+      : node.property.name;
+    return receiver && property ? `${receiver}.${property}` : null;
   }
-
-  const calleeName = getCalleeName(parent.callee);
-
-  return calleeName !== null && sinkCallees.has(calleeName);
+  return null;
 }
 
+/**
+ * Checks legacy method-name sinks or precise path/argument descriptors.
+ * @param {object} node - Argument after transparent wrappers.
+ * @param {Array} sinkCallees - Configured sink names or descriptors.
+ * @returns {boolean} Whether the argument is a configured contract.
+ */
+function isKnownSinkArgument(node, sinkCallees) {
+  const parent = getParent(node);
+  if (parent?.type !== "CallExpression") return false;
+  const argumentIndex = parent.arguments.indexOf(node);
+  if (argumentIndex < 0) return false;
+  const calleeName = getCalleeName(parent.callee);
+  const calleePath = getCalleePath(parent.callee);
+  return sinkCallees.some((sink) => typeof sink === "string"
+    ? sink === calleeName || sink === calleePath
+    : sink.callee === calleePath && sink.argumentIndex === argumentIndex);
+}
+
+/**
+ * Recognizes action properties inside dispatcher arguments.
+ * @param {*} node - Runtime property value.
+ * @param {*} actionTypeCallees - Allowed dispatcher names.
+ * @param {*} actionTypeProperty - Property carrying the action contract.
+ * @returns {*} Whether this value is an action type.
+ */
 function isActionTypeProperty(node, actionTypeCallees, actionTypeProperty) {
   const property = getParent(node);
 
@@ -436,11 +460,12 @@ function isActionTypeProperty(node, actionTypeCallees, actionTypeProperty) {
     return false;
   }
 
-  const callExpression = getParent(objectExpression);
+  const argument = getContextNode(objectExpression);
+  const callExpression = getParent(argument);
 
   if (
     callExpression?.type !== "CallExpression" ||
-    !callExpression.arguments.includes(objectExpression)
+    !callExpression.arguments.includes(argument)
   ) {
     return false;
   }
@@ -450,6 +475,11 @@ function isActionTypeProperty(node, actionTypeCallees, actionTypeProperty) {
   return calleeName !== null && actionTypeCallees.has(calleeName);
 }
 
+/**
+ * Normalizes validated options without mutating caller configuration.
+ * @param {*} rawOptions - User rule configuration.
+ * @returns {*} Normalized lookup collections and sink descriptors.
+ */
 function normalizeOptions(rawOptions = {}) {
   const sinks = Array.isArray(rawOptions.sinks)
     ? rawOptions.sinks
@@ -459,7 +489,7 @@ function normalizeOptions(rawOptions = {}) {
     : DEFAULT_ACTION_TYPE_CALLEES;
 
   return {
-    sinks: new Set(sinks),
+    sinks,
     actionTypeCallees: new Set(actionTypeCallees),
     actionTypeProperty: rawOptions.actionTypeProperty ?? DEFAULT_ACTION_TYPE_PROPERTY,
     minDuplicates:
@@ -472,7 +502,13 @@ function normalizeOptions(rawOptions = {}) {
   };
 }
 
-function isAllowlistedPosition(node) {
+/**
+ * Identifies presentation and declaration positions exempt from duplication.
+ * @param {*} node - Original literal expression.
+ * @param {*} sourceCode - ESLint source and scope information.
+ * @returns {*} Whether the position is exempt.
+ */
+function isAllowlistedPosition(node, sourceCode) {
   return (
     isImportOrExportSource(node) ||
     isTypeOnlyLiteral(node) ||
@@ -484,11 +520,37 @@ function isAllowlistedPosition(node) {
     isObjectKey(node) ||
     isMemberPropertyName(node) ||
     isExtractedConstantLiteral(node) ||
-    isInsideNextFontLoaderCall(node)
+    isInsideNextFontLoaderCall(node, sourceCode)
   );
 }
 
+/** Transparent TypeScript wrappers preserve the runtime expression context. */
+const TRANSPARENT_EXPRESSION_TYPES = new Set([
+  "TSAsExpression", "TSSatisfiesExpression", "TSTypeAssertion", "TSNonNullExpression",
+]);
+
+/**
+ * Walks through wrappers that do not change runtime expression meaning.
+ * @param {object} node - Original runtime expression.
+ * @returns {object} Outermost transparent expression.
+ */
+function getContextNode(node) {
+  let current = node;
+  while (TRANSPARENT_EXPRESSION_TYPES.has(current.parent?.type) &&
+    current.parent.expression === current) {
+    current = current.parent;
+  }
+  return current;
+}
+
+/**
+ * Detects runtime contracts through transparent TypeScript wrappers.
+ * @param {*} node - Original string expression.
+ * @param {*} options - Normalized rule configuration.
+ * @returns {*} Whether the expression participates in a behavioral contract.
+ */
 function isSuspiciousContext(node, options) {
+  node = getContextNode(node);
   return (
     isEqualityComparisonOperand(node) ||
     isSwitchCaseTest(node) ||
@@ -497,6 +559,7 @@ function isSuspiciousContext(node, options) {
   );
 }
 
+/** Defines schema, diagnostics, and per-file string analysis for ESLint. */
 const noMagicStringsRule = {
   meta: {
     type: "suggestion",
@@ -510,7 +573,20 @@ const noMagicStringsRule = {
         properties: {
           sinks: {
             type: "array",
-            items: { type: "string" },
+            items: {
+              anyOf: [
+                { type: "string" },
+                {
+                  type: "object",
+                  properties: {
+                    callee: { type: "string", minLength: 1 },
+                    argumentIndex: { type: "integer", minimum: 0 },
+                  },
+                  required: ["callee", "argumentIndex"],
+                  additionalProperties: false,
+                },
+              ],
+            },
           },
           actionTypeCallees: {
             type: "array",
@@ -538,9 +614,15 @@ const noMagicStringsRule = {
         'This string literal "{{value}}" is repeated {{count}} times; extract it into a named constant.',
     },
   },
+  /**
+   * Creates per-file visitors and deduplicates diagnostics.
+   * @param {object} context - ESLint rule context.
+   * @returns {object} AST visitors for string expressions and file completion.
+   */
   create(context) {
     const options = normalizeOptions(context.options[0]);
     const duplicateCandidates = new Map();
+    const reportedNodes = new Set();
 
     function collectDuplicateCandidate(value, node) {
       const existingNodes = duplicateCandidates.get(value);
@@ -553,29 +635,28 @@ const noMagicStringsRule = {
       duplicateCandidates.set(value, [node]);
     }
 
+    /**
+     * Reports behavioral contracts and records eligible duplicate occurrences.
+     * @param {object} node - Original literal used for diagnostic locations.
+     * @param {string} value - Evaluated static string value.
+     * @returns {void} Reports immediately or defers duplicate diagnostics.
+     */
     function evaluateStringValue(node, value) {
-      if (value.length <= SINGLE_CHARACTER_LENGTH) {
-        return;
-      }
+      if (!value || options.ignoreStrings.has(value)) return;
+      const contextNode = getContextNode(node);
+      if (isDirectiveLiteral(node) || isTypeofComparisonLiteral(contextNode, value)) return;
 
-      if (options.ignoreStrings.has(value)) {
-        return;
-      }
+      const suspicious = isSuspiciousContext(node, options);
+      if (!suspicious && isAllowlistedPosition(node, context.sourceCode)) return;
 
-      if (isDirectiveLiteral(node) || isTypeofComparisonLiteral(node)) {
-        return;
-      }
-
-      if (isAllowlistedPosition(node)) {
-        return;
-      }
-
-      if (isSuspiciousContext(node, options)) {
+      if (suspicious) {
         context.report({ node, messageId: "noMagicString" });
-        return;
+        reportedNodes.add(node);
       }
-
-      collectDuplicateCandidate(value, node);
+      // Single characters are exempt only from duplicate detection.
+      if (value.length > SINGLE_CHARACTER_LENGTH && options.minDuplicates > 0) {
+        collectDuplicateCandidate(value, node);
+      }
     }
 
     return {
@@ -586,6 +667,11 @@ const noMagicStringsRule = {
 
         evaluateStringValue(node, node.value);
       },
+      /**
+       * Checks static templates and interpolated behavioral contracts.
+       * @param {object} node - Template expression.
+       * @returns {void} Emits applicable diagnostics.
+       */
       TemplateLiteral(node) {
         const noSubstitutionText = getNoSubstitutionTemplateText(node);
 
@@ -598,14 +684,14 @@ const noMagicStringsRule = {
           return;
         }
 
-        if (isAllowlistedPosition(node)) {
-          return;
-        }
-
         if (isSuspiciousContext(node, options)) {
           context.report({ node, messageId: "noMagicString" });
         }
       },
+      /**
+       * Reports duplicates once per previously unreported occurrence.
+       * @returns {void} Emits deferred diagnostics.
+       */
       "Program:exit"() {
         if (options.minDuplicates <= 0) {
           return;
@@ -617,6 +703,7 @@ const noMagicStringsRule = {
           }
 
           for (const node of nodes) {
+            if (reportedNodes.has(node)) continue;
             context.report({
               node,
               messageId: "duplicateString",

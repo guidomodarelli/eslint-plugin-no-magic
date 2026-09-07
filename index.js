@@ -7,6 +7,8 @@
  * with this plugin's defaults.
  */
 
+import { createRequire } from "node:module";
+
 import noMagicStrings from "./rules/no-magic-strings.js";
 
 /**
@@ -24,10 +26,14 @@ export const recommendedMagicNumberOptions = {
   ignoreDefaultValues: true,
 };
 
+/** Package metadata is the canonical source for the public plugin version. */
+const packageMetadata = createRequire(import.meta.url)("./package.json");
+
+/** Exposes rules and flat configuration to ESLint consumers. */
 const plugin = {
   meta: {
     name: "eslint-plugin-no-magic",
-    version: "0.1.0",
+    version: packageMetadata.version,
   },
   rules: {
     "no-magic-strings": noMagicStrings,

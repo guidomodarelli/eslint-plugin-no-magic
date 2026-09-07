@@ -25,10 +25,11 @@ initializers, extracted `const` definitions, and `next/font` loader options.
 ## Install
 
 ```bash
-npm install --save-dev eslint-plugin-no-magic
+pnpm add --save-dev eslint-plugin-no-magic
 ```
 
-Requires ESLint 9+ (flat config).
+Requires ESLint 9+ (flat config) and Node.js 22.12+, 24+, or 26+ within the supported engine ranges.
+Development uses pnpm 12+ (pinned to 12.3.4) and Vitest 5.
 
 ## Usage
 
@@ -65,7 +66,7 @@ export default [
 
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
-| `sinks` | `string[]` | `track`, `trackEvent`, `sendEvent`, `logEvent`, `captureEvent`, `getItem`, `setItem`, `removeItem`, `isFeatureEnabled`, `isEnabled`, `getFlag`, `navigate`, `push`, `replace` | Callee names whose string arguments are treated as contracts. Matches both `track("x")` and `obj.method("x")` by the called name. |
+| `sinks` | `(string \| { callee: string, argumentIndex: number })[]` | `track`, `trackEvent`, `sendEvent`, `logEvent`, `captureEvent`, `getItem`, `setItem`, `removeItem`, `isFeatureEnabled`, `isEnabled`, `getFlag`, `navigate`, `{ callee: "router.push", argumentIndex: 0 }`, `{ callee: "router.replace", argumentIndex: 0 }` | Callee names whose string arguments are treated as contracts. Strings match method names or full static paths; descriptors match a full static path and a zero-based argument index. |
 | `actionTypeCallees` | `string[]` | `["dispatch"]` | Callees whose object argument's action-type property is treated as a contract. |
 | `actionTypeProperty` | `string` | `"type"` | The property name inspected inside `actionTypeCallees` arguments. |
 | `minDuplicates` | `integer >= 0` | `3` | Report a value repeated this many times (across non-allowlisted positions). `0` disables duplicate detection. |
@@ -73,11 +74,27 @@ export default [
 
 ```js
 "no-magic/no-magic-strings": ["error", {
-  sinks: ["track", "getItem", "setItem", "removeItem", "push", "replace"],
+  sinks: ["track", "getItem", "setItem", "removeItem",
+    { callee: "router.push", argumentIndex: 0 },
+    { callee: "router.replace", argumentIndex: 0 }],
   minDuplicates: 3,
   ignoreStrings: ["latin"],
 }]
 ```
+
+JSX and SVG presentation values remain allowed, but comparisons, action types,
+and configured calls inside their expressions are checked. TypeScript `as`,
+`satisfies`, type assertions, and non-null assertions preserve this detection.
+Single-character values are checked in these behavioral contexts; only duplicate
+checking ignores them. `ignoreStrings` still explicitly allows exact values.
+
+Duplicate counts include occurrences already reported for a behavioral context,
+without reporting the same node twice. `minDuplicates: 0` disables counting.
+
+Routing defaults now match only `router.push` and `router.replace`, argument 0.
+For a differently named router, configure its static path explicitly. Legacy
+`sinks: ["push", "replace"]` still opts into matching every method with those
+names. Descriptors do not resolve aliases or infer receiver types.
 
 ## Magic numbers
 
@@ -108,9 +125,9 @@ enforces `const`.
 ## Development
 
 ```bash
-npm install
-npm test     # node --test + RuleTester
-npm run lint
+pnpm install
+pnpm test     # Vitest 5 + ESLint RuleTester
+pnpm lint
 ```
 
 ## Publishing
@@ -127,11 +144,11 @@ process environment (npm does not read `.env` itself, so load it first).
    - PowerShell:
      ```powershell
      $env:NPM_TOKEN = (Get-Content .env | Where-Object { $_ -match '^NPM_TOKEN=' }) -replace '^NPM_TOKEN=', ''
-     npm publish --access public
+     pnpm publish --access public
      ```
    - bash/zsh:
      ```bash
-     export $(grep -v '^#' .env | xargs) && npm publish --access public
+     export $(grep -v '^#' .env | xargs) && pnpm publish --access public
      ```
 
 `.env` is gitignored and `.npmrc` is excluded from the published tarball by the
