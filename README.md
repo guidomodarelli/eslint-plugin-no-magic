@@ -28,7 +28,7 @@ initializers, extracted `const` definitions, and `next/font` loader options.
 pnpm add --save-dev eslint-plugin-no-magic
 ```
 
-Requires ESLint 10.10+ (flat config) and Node.js 22.13+, 24+, or 26+ within the supported engine ranges.
+Requires ESLint 10.10+ (flat config) and Node.js 26.x (`^26.0.0`).
 Development uses pnpm 12+ (pinned to 12.3.4) and Vitest 5.
 
 ## Usage
@@ -205,7 +205,7 @@ method-name matching for custom storage receivers. Real directive prologues and
 visible JSX copy in conditional branches remain exempt from duplicate reporting.
 
 CI runs frozen installation, lint, type checks, and tests on Windows and Linux
-with Node 22, 24, and 26. The suite packs the package and checks real ESLint
+with Node 26. The suite packs the package and checks real ESLint
 behavior and declaration consumption from the extracted artifact.
 
 ### TypeScript compiler compatibility

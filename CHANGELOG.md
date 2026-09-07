@@ -13,6 +13,6 @@
 - Add public TypeScript declarations, packed-consumer tests, and a repeatable benchmark.
 - Test ESLint 10.10.0; bound the supported peer range to this release line.
 - Adopt pnpm 12, Vitest 5, and TypeScript 7 with the TS6 parser compatibility package.
-- Require Node `^22.13.0 || ^24.0.0 || >=26.0.0`.
+- Require Node `^26.0.0`.
 
 See [the migration guide](MIGRATION.md) before upgrading from 0.1.x.

@@ -1,6 +1,6 @@
 # Migrating from 0.1.x to 0.2.0
 
-Use Node `^22.13.0 || ^24.0.0 || >=26.0.0` and ESLint
+Use Node `^26.0.0` and ESLint
 `^10.10.0`. Repository development requires pnpm 12+.
 
 ## Recommended configuration
