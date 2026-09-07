@@ -8,7 +8,6 @@
  * extracted constants, visible copy) are ignored by default.
  */
 
-const DIRECTIVE_LITERALS = new Set(["use client", "use server"]);
 const TYPEOF_RESULT_LITERALS = new Set([
   "bigint",
   "boolean",
@@ -48,9 +47,9 @@ const DEFAULT_SINK_CALLEES = [
   "sendEvent",
   "logEvent",
   "captureEvent",
-  "getItem",
-  "setItem",
-  "removeItem",
+  { callee: "getItem", argumentIndex: 0 },
+  { callee: "setItem", argumentIndex: 0 },
+  { callee: "removeItem", argumentIndex: 0 },
   "isFeatureEnabled",
   "isEnabled",
   "getFlag",
@@ -83,36 +82,42 @@ function getNoSubstitutionTemplateText(node) {
   return node.quasis[0]?.value.cooked ?? null;
 }
 
+/**
+ * Resolves a bare or member callee name.
+ * @param {object} callee - Called expression.
+ * @returns {*} Resolved name or context match.
+ */
 function getCalleeName(callee) {
   if (callee.type === "Identifier") {
     return callee.name;
   }
 
-  if (
-    callee.type === "MemberExpression" &&
-    !callee.computed &&
-    callee.property?.type === "Identifier"
-  ) {
-    return callee.property.name;
+  if (callee.type === "MemberExpression") {
+    return getStaticPropertyName(callee.property, callee.computed);
   }
 
   return null;
 }
 
-function getPropertyKeyName(property) {
-  if (property.computed) {
-    return null;
-  }
-
-  if (property.key?.type === "Identifier") {
-    return property.key.name;
-  }
-
-  if (property.key?.type === "Literal" && typeof property.key.value === "string") {
-    return property.key.value;
-  }
-
+/**
+ * Resolves identifier and computed literal property names consistently.
+ * @param {object} key - Property key expression.
+ * @param {boolean} computed - Whether bracket notation is used.
+ * @returns {string|null} Statically known property name.
+ */
+function getStaticPropertyName(key, computed) {
+  if (!computed && key?.type === "Identifier") return key.name;
+  if (key?.type === "Literal" && typeof key.value === "string") return key.value;
   return null;
+}
+
+/**
+ * Resolves a static object property key.
+ * @param {object} property - Object property.
+ * @returns {string|null} Known key or null for dynamic keys.
+ */
+function getPropertyKeyName(property) {
+  return getStaticPropertyName(property.key, property.computed);
 }
 
 /**
@@ -195,8 +200,13 @@ function isJsxAttributeValueLiteral(node) {
   return false;
 }
 
+/**
+ * Recognizes copy rendered directly or through value branches.
+ * @param {object} node - String expression.
+ * @returns {*} Resolved name or context match.
+ */
 function isVisibleJsxCopyLiteral(node) {
-  const parent = getParent(node);
+  const parent = getParent(getContextNode(node));
 
   return (
     parent?.type === "JSXExpressionContainer" &&
@@ -271,10 +281,16 @@ function isSvgMarkupLiteral(node) {
   return false;
 }
 
+/**
+ * Recognizes actual directive prologues reported by the parser.
+ * @param {object} node - Literal expression.
+ * @returns {*} Resolved name or context match.
+ */
 function isDirectiveLiteral(node) {
   return (
     getParent(node)?.type === "ExpressionStatement" &&
-    DIRECTIVE_LITERALS.has(node.value)
+    getParent(node).expression === node &&
+    typeof getParent(node).directive === "string"
   );
 }
 
@@ -344,6 +360,12 @@ function isMemberPropertyName(node) {
   return parent?.type === "MemberExpression" && parent.property === node;
 }
 
+/**
+ * Checks declaration containers and transparent runtime wrappers.
+ * @param {object} parent - Enclosing node.
+ * @param {object} current - Child expression.
+ * @returns {*} Resolved name or context match.
+ */
 function isContainerNode(parent, current) {
   if (parent.type === "Property" && parent.value === current) {
     return true;
@@ -352,8 +374,7 @@ function isContainerNode(parent, current) {
   return (
     parent.type === "ArrayExpression" ||
     parent.type === "ObjectExpression" ||
-    parent.type === "TSAsExpression" ||
-    parent.type === "TSSatisfiesExpression"
+    (TRANSPARENT_EXPRESSION_TYPES.has(parent.type) && parent.expression === current)
   );
 }
 
@@ -410,9 +431,7 @@ function getCalleePath(node) {
   if (node.type === "Identifier") return node.name;
   if (node.type === "MemberExpression") {
     const receiver = getCalleePath(node.object);
-    const property = node.computed
-      ? (typeof node.property.value === "string" ? node.property.value : null)
-      : node.property.name;
+    const property = getStaticPropertyName(node.property, node.computed);
     return receiver && property ? `${receiver}.${property}` : null;
   }
   return null;
@@ -433,7 +452,8 @@ function isKnownSinkArgument(node, sinkCallees) {
   const calleePath = getCalleePath(parent.callee);
   return sinkCallees.some((sink) => typeof sink === "string"
     ? sink === calleeName || sink === calleePath
-    : sink.callee === calleePath && sink.argumentIndex === argumentIndex);
+    : (sink.callee === calleePath || sink.callee === calleeName) &&
+      sink.argumentIndex === argumentIndex);
 }
 
 /**
@@ -530,15 +550,21 @@ const TRANSPARENT_EXPRESSION_TYPES = new Set([
 ]);
 
 /**
- * Walks through wrappers that do not change runtime expression meaning.
+ * Follows transparent wrappers and branches that contribute an expression value.
  * @param {object} node - Original runtime expression.
- * @returns {object} Outermost transparent expression.
+ * @returns {object} Outermost expression receiving the literal value.
  */
 function getContextNode(node) {
   let current = node;
-  while (TRANSPARENT_EXPRESSION_TYPES.has(current.parent?.type) &&
-    current.parent.expression === current) {
-    current = current.parent;
+  while (current.parent) {
+    const parent = current.parent;
+    const transparent = TRANSPARENT_EXPRESSION_TYPES.has(parent.type) && parent.expression === current;
+    const conditionalBranch = parent.type === "ConditionalExpression" &&
+      (parent.consequent === current || parent.alternate === current);
+    const logicalValue = parent.type === "LogicalExpression" &&
+      (parent.right === current || parent.operator !== "&&");
+    if (!transparent && !conditionalBranch && !logicalValue) break;
+    current = parent;
   }
   return current;
 }

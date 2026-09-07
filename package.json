@@ -15,16 +15,21 @@
   ],
   "main": "index.js",
   "exports": {
-    ".": "./index.js"
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    }
   },
   "files": [
     "index.js",
     "rules",
-    "README.md"
+    "README.md",
+    "index.d.ts"
   ],
   "scripts": {
     "test": "vitest run",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
     "eslint": ">=9"
@@ -32,12 +37,15 @@
   "devDependencies": {
     "@eslint/js": "^9.39.4",
     "@typescript-eslint/parser": "^8.60.0",
+    "@typescript/native": "npm:typescript@^7.0.2",
     "eslint": "^9.39.4",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
     "vitest": "^5.0.0"
   },
   "engines": {
     "node": "^22.12.0 || ^24.0.0 || >=26.0.0",
     "pnpm": ">=12"
   },
-  "packageManager": "pnpm@12.3.4"
+  "packageManager": "pnpm@12.3.4",
+  "types": "./index.d.ts"
 }

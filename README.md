@@ -66,7 +66,7 @@ export default [
 
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
-| `sinks` | `(string \| { callee: string, argumentIndex: number })[]` | `track`, `trackEvent`, `sendEvent`, `logEvent`, `captureEvent`, `getItem`, `setItem`, `removeItem`, `isFeatureEnabled`, `isEnabled`, `getFlag`, `navigate`, `{ callee: "router.push", argumentIndex: 0 }`, `{ callee: "router.replace", argumentIndex: 0 }` | Callee names whose string arguments are treated as contracts. Strings match method names or full static paths; descriptors match a full static path and a zero-based argument index. |
+| `sinks` | `(string \| { callee: string, argumentIndex: number })[]` | `track`, `trackEvent`, `sendEvent`, `logEvent`, `captureEvent`, `getItem`/`setItem`/`removeItem` (argument 0), `isFeatureEnabled`, `isEnabled`, `getFlag`, `navigate`, `{ callee: "router.push", argumentIndex: 0 }`, `{ callee: "router.replace", argumentIndex: 0 }` | Callee names whose string arguments are treated as contracts. Strings match method names or full static paths; descriptors match a method name or full static path and a zero-based argument index. |
 | `actionTypeCallees` | `string[]` | `["dispatch"]` | Callees whose object argument's action-type property is treated as a contract. |
 | `actionTypeProperty` | `string` | `"type"` | The property name inspected inside `actionTypeCallees` arguments. |
 | `minDuplicates` | `integer >= 0` | `3` | Report a value repeated this many times (across non-allowlisted positions). `0` disables duplicate detection. |
@@ -128,6 +128,7 @@ enforces `const`.
 pnpm install
 pnpm test     # Vitest 5 + ESLint RuleTester
 pnpm lint
+pnpm typecheck # Public configuration types
 ```
 
 ## Publishing
@@ -158,3 +159,36 @@ ship with the package.
 ## License
 
 MIT
+
+## Typed configuration
+
+The package includes TypeScript declarations and exports `NoMagicStringsOptions`
+and `SinkDescriptor` for typed consumer configuration:
+
+```ts
+import type { NoMagicStringsOptions } from "eslint-plugin-no-magic";
+
+const options = {
+  sinks: [{ callee: "router.push", argumentIndex: 0 }],
+} satisfies NoMagicStringsOptions;
+```
+
+Contract detection follows ternary value branches and logical fallbacks, including
+TypeScript wrappers. Computed static dispatcher/property names are equivalent to
+dot notation. Storage defaults inspect only argument 0 (the key), and preserve
+method-name matching for custom storage receivers. Real directive prologues and
+visible JSX copy in conditional branches remain exempt from duplicate reporting.
+
+CI runs frozen installation, lint, type checks, and tests on Windows and Linux
+with Node 22, 24, and 26. The suite packs the package and checks real ESLint
+behavior and declaration consumption from the extracted artifact.
+
+### TypeScript compiler compatibility
+
+Type checking uses TypeScript 7 (`tsc`), installed as
+`@typescript/native: npm:typescript@^7.0.2`. The ESLint parser still requires the
+TypeScript 6 API, so `typescript` aliases `@typescript/typescript6` for parsing.
+Both are real implementations; the compatibility package exposes `tsc6` and
+does not replace the TypeScript 7 compiler used by `pnpm typecheck` or the
+packaged consumer test. This follows Microsoft's
+[side-by-side installation guidance](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/#running-side-by-side-with-typescript-6.0).

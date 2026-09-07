@@ -25,6 +25,13 @@ const duplicateString = { messageId: "duplicateString" };
 
 ruleTester.run("no-magic-strings", rule, {
   valid: [
+    { code: 'localStorage.setItem(KEY, "Texto libre"); sessionStorage.setItem(KEY, "Texto libre");' },
+    { code: 'const node = <>{ready ? "Cargando" : "Cargando"}{other && "Cargando"}</>;', filename: "copy.tsx" },
+    { code: 'function first(){"use strict";} function second(){"use strict";} function third(){"use strict";}' },
+    { code: 'const first = <string>"pending"; const second = <string>"pending"; const third = <string>"pending";', filename: "constants.ts" },
+    { code: 'router.push("condition" ? ROUTE_A : ROUTE_B);' },
+    { code: 'store[method]({ [key]: "cart/add" });' },
+
     { code: 'input.replace("hello", "goodbye"); items.push("Visible copy");' },
     {
       code: 'client.send(key, "payload"); other.send("contract");',
@@ -124,6 +131,15 @@ ruleTester.run("no-magic-strings", rule, {
     },
   ],
   invalid: [
+    { code: 'router.push(ready ? "/checkout" : "/login");', errors: [noMagicString, noMagicString] },
+    { code: 'router.push(route || "/login");', errors: [noMagicString] },
+    { code: 'router.push(ready ? ("/checkout" as const) : (route ?? "/login"));', errors: [noMagicString, noMagicString] },
+    { code: 'store["dispatch"]({ type: "cart/add" });', errors: [noMagicString] },
+    { code: 'dispatch({ ["type"]: "cart/add" });', errors: [noMagicString] },
+    { code: 'localStorage.setItem("key", "value"); sessionStorage.getItem("key");', errors: [noMagicString, noMagicString] },
+    { code: 'const node = <>{status === "loading" ? "Cargando" : "Listo"}</>;', filename: "copy.tsx", errors: [noMagicString] },
+    { code: 'label("use strict"); label("use strict"); label("use strict");', errors: [duplicateString, duplicateString, duplicateString] },
+
     {
       code: 'const node = <Button disabled={status === "blocked"} />;',
       filename: "component.tsx",
