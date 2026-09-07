@@ -9,7 +9,7 @@
 
 import { createRequire } from "node:module";
 
-import noMagicStrings from "./rules/no-magic-strings.js";
+import noMagicStrings, { createFocusedStringRule } from "./rules/no-magic-strings.js";
 
 /**
  * Sensible defaults for `@typescript-eslint/no-magic-numbers`. Consumers wire
@@ -37,12 +37,14 @@ const plugin = {
   },
   rules: {
     "no-magic-strings": noMagicStrings,
+    "no-magic-contracts": createFocusedStringRule("contracts"),
+    "no-duplicate-strings": createFocusedStringRule("duplicates"),
   },
   configs: {},
 };
 
 /**
- * Flat config that enables `no-magic-strings` with its defaults. Spread it into
+ * Flat config that reports contracts as errors and duplicates as warnings. Spread it into
  * an ESLint flat config array. Add `@typescript-eslint/no-magic-numbers` with
  * `recommendedMagicNumberOptions` separately to also cover magic numbers.
  */
@@ -52,7 +54,8 @@ plugin.configs.recommended = [
       "no-magic": plugin,
     },
     rules: {
-      "no-magic/no-magic-strings": "error",
+      "no-magic/no-magic-contracts": "error",
+      "no-magic/no-duplicate-strings": "warn",
     },
   },
 ];

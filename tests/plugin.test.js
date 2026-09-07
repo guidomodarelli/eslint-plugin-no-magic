@@ -9,7 +9,7 @@ it("should report contracts when the recommended flat config is used", () => {
   const linter = new Linter();
   const messages = linter.verify('router.push("/checkout");', plugin.configs.recommended);
   assert.equal(messages.length, 1);
-  assert.equal(messages[0].ruleId, "no-magic/no-magic-strings");
+  assert.equal(messages[0].ruleId, "no-magic/no-magic-contracts");
   assert.equal(messages[0].messageId, "noMagicString");
   assert.equal(plugin.meta.version, createRequire(import.meta.url)("../package.json").version);
 });

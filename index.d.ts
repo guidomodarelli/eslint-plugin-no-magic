@@ -17,6 +17,12 @@ export interface NoMagicStringsOptions {
   ignoreStrings?: string[];
 }
 
+/** Configures contracts without duplicate thresholds. */
+export type NoMagicContractsOptions = Omit<NoMagicStringsOptions, "minDuplicates">;
+
+/** Configures duplicate detection independently from contract rules. */
+export type NoDuplicateStringsOptions = Pick<NoMagicStringsOptions, "minDuplicates" | "ignoreStrings">;
+
 /** Exposes the recommended options for the upstream TypeScript number rule. */
 export const recommendedMagicNumberOptions: {
   ignore: number[];
@@ -30,7 +36,11 @@ export const recommendedMagicNumberOptions: {
 
 /** Exposes the named rule and ready-to-use flat configuration. */
 declare const plugin: ESLint.Plugin & {
-  rules: { "no-magic-strings": Rule.RuleModule };
+  rules: {
+    "no-magic-strings": Rule.RuleModule;
+    "no-magic-contracts": Rule.RuleModule;
+    "no-duplicate-strings": Rule.RuleModule;
+  };
   configs: { recommended: Linter.Config[] };
 };
 

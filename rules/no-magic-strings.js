@@ -576,13 +576,26 @@ function getContextNode(node) {
  * @returns {*} Whether the expression participates in a behavioral contract.
  */
 function isSuspiciousContext(node, options) {
+  return getContractReason(node, options) !== null;
+}
+
+/**
+ * Explains the specific runtime contract represented by a string.
+ * @param {object} node - Original string expression.
+ * @param {object} options - Normalized rule options.
+ * @returns {string|null} Human-readable reason or null outside a contract.
+ */
+function getContractReason(node, options) {
   node = getContextNode(node);
-  return (
-    isEqualityComparisonOperand(node) ||
-    isSwitchCaseTest(node) ||
-    isKnownSinkArgument(node, options.sinks) ||
-    isActionTypeProperty(node, options.actionTypeCallees, options.actionTypeProperty)
-  );
+  if (isEqualityComparisonOperand(node)) return "comparison value";
+  if (isSwitchCaseTest(node)) return "switch case value";
+  if (isActionTypeProperty(node, options.actionTypeCallees, options.actionTypeProperty)) return "action type";
+  if (!isKnownSinkArgument(node, options.sinks)) return null;
+  const callee = getCalleeName(node.parent.callee);
+  if (["getItem", "setItem", "removeItem"].includes(callee)) return "storage key";
+  if (["push", "replace", "navigate"].includes(callee)) return "navigation argument";
+  if (["getFlag", "isFeatureEnabled", "isEnabled"].includes(callee)) return "feature flag identifier";
+  return "configured call argument";
 }
 
 /** Defines schema, diagnostics, and per-file string analysis for ESLint. */
@@ -635,7 +648,7 @@ const noMagicStringsRule = {
     ],
     messages: {
       noMagicString:
-        "Extract this string literal into a named constant or configuration value; it participates in a comparison, switch case, action type, or a known behavioral sink.",
+        "Extract this {{reason}} into a named constant or configuration value.",
       duplicateString:
         'This string literal "{{value}}" is repeated {{count}} times; extract it into a named constant.',
     },
@@ -643,10 +656,13 @@ const noMagicStringsRule = {
   /**
    * Creates per-file visitors and deduplicates diagnostics.
    * @param {object} context - ESLint rule context.
+   * @param {string} detection - Combined, contracts, or duplicates reporting.
    * @returns {object} AST visitors for string expressions and file completion.
    */
-  create(context) {
+  create(context, detection = "combined") {
     const options = normalizeOptions(context.options[0]);
+    const reportContracts = detection !== "duplicates";
+    if (detection === "contracts") options.minDuplicates = 0;
     const duplicateCandidates = new Map();
     const reportedNodes = new Set();
 
@@ -675,8 +691,8 @@ const noMagicStringsRule = {
       const suspicious = isSuspiciousContext(node, options);
       if (!suspicious && isAllowlistedPosition(node, context.sourceCode)) return;
 
-      if (suspicious) {
-        context.report({ node, messageId: "noMagicString" });
+      if (suspicious && reportContracts) {
+        context.report({ node, messageId: "noMagicString", data: { reason: getContractReason(node, options) } });
         reportedNodes.add(node);
       }
       // Single characters are exempt only from duplicate detection.
@@ -710,8 +726,8 @@ const noMagicStringsRule = {
           return;
         }
 
-        if (isSuspiciousContext(node, options)) {
-          context.report({ node, messageId: "noMagicString" });
+        if (reportContracts && isSuspiciousContext(node, options)) {
+          context.report({ node, messageId: "noMagicString", data: { reason: getContractReason(node, options) } });
         }
       },
       /**
@@ -741,5 +757,37 @@ const noMagicStringsRule = {
     };
   },
 };
+
+/**
+ * Creates an independently configurable rule using the shared string analysis.
+ * @param {"contracts"|"duplicates"} detection - Reporting responsibility.
+ * @returns {object} ESLint rule with a focused option schema.
+ */
+export function createFocusedStringRule(detection) {
+  const properties = { ...noMagicStringsRule.meta.schema[0].properties };
+  if (detection === "contracts") delete properties.minDuplicates;
+  if (detection === "duplicates") {
+    delete properties.sinks;
+    delete properties.actionTypeCallees;
+    delete properties.actionTypeProperty;
+  }
+  return {
+    meta: {
+      ...noMagicStringsRule.meta,
+      docs: { description: detection === "contracts"
+        ? "Disallow unnamed string contracts in runtime logic"
+        : "Disallow repeated string values in non-structural positions" },
+      schema: [{ ...noMagicStringsRule.meta.schema[0], properties }],
+    },
+    /**
+     * Binds shared analysis to this rule's reporting responsibility.
+     * @param {object} context - ESLint rule context.
+     * @returns {object} Per-file AST visitors.
+     */
+    create(context) {
+      return noMagicStringsRule.create(context, detection);
+    },
+  };
+}
 
 export default noMagicStringsRule;
