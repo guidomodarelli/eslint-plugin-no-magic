@@ -21,4 +21,5 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm typecheck
-      - run: pnpm test
+      - name: Test ESLint 10.10.0
+        run: pnpm test

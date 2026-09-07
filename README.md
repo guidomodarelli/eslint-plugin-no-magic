@@ -28,7 +28,7 @@ initializers, extracted `const` definitions, and `next/font` loader options.
 pnpm add --save-dev eslint-plugin-no-magic
 ```
 
-Requires ESLint 9+ (flat config) and Node.js 22.12+, 24+, or 26+ within the supported engine ranges.
+Requires ESLint 10.10+ (flat config) and Node.js 22.13+, 24+, or 26+ within the supported engine ranges.
 Development uses pnpm 12+ (pinned to 12.3.4) and Vitest 5.
 
 ## Usage
@@ -60,7 +60,31 @@ export default [
 ];
 ```
 
-## Rule: `no-magic-strings`
+## Independent rules
+
+The recommended preset enables `no-magic-contracts` as an error and
+`no-duplicate-strings` as a warning. Both can be configured independently:
+
+```js
+export default [
+  ...noMagic.configs.recommended,
+  { rules: {
+    "no-magic/no-magic-contracts": ["error", { ignoreStrings: ["legacy"] }],
+    "no-magic/no-duplicate-strings": ["warn", { minDuplicates: 4 }],
+  } },
+];
+```
+
+`no-magic-contracts` accepts `sinks`, `actionTypeCallees`, `actionTypeProperty`,
+and `ignoreStrings`. `no-duplicate-strings` accepts `minDuplicates` and
+`ignoreStrings`. A repeated contract may receive diagnostics from both rules.
+Disable the duplicate rule if only contract detection is wanted.
+
+The combined `no-magic-strings` rule remains available for manual configurations
+and emits at most one diagnostic per node. Do not enable it alongside the two
+independent rules. See [migration notes](MIGRATION.md) and [changes](CHANGELOG.md).
+
+## Combined rule: `no-magic-strings`
 
 ### Options
 
@@ -129,6 +153,7 @@ pnpm install
 pnpm test     # Vitest 5 + ESLint RuleTester
 pnpm lint
 pnpm typecheck # Public configuration types
+pnpm benchmark # Deterministic end-to-end lint benchmark
 ```
 
 ## Publishing
@@ -192,3 +217,12 @@ Both are real implementations; the compatibility package exposes `tsc6` and
 does not replace the TypeScript 7 compiler used by `pnpm typecheck` or the
 packaged consumer test. This follows Microsoft's
 [side-by-side installation guidance](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/#running-side-by-side-with-typescript-6.0).
+
+## Performance baseline
+
+`pnpm benchmark` compares parsing alone, the combined rule, and the recommended
+independent rules on 300, 3,000, and 15,000 literals. Every run asserts diagnostic
+counts. It records the median of five measured runs after two warmups, along
+with Node, ESLint, OS, and CPU metadata. See [the baseline](benchmarks/RESULTS.md).
+The benchmark includes parsing and diagnostic construction; it is not an isolated
+rule timing or a CI performance threshold.
