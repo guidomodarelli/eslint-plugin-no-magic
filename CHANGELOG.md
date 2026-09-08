@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.3 - Unreleased
+
+- Upgrade checkout, setup-node and pnpm setup actions to Node 24 runtimes.
+- Keep the Node 26 minimum/current test matrix and pnpm 12 configuration.
+
 ## 1.8.2 - Unreleased
 
 - Expand positive and negative public TypeScript configuration contracts.
