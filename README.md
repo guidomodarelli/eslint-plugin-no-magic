@@ -332,3 +332,20 @@ contains its declared exports and no unexpected private files. Output goes to
 `releases/<version>-<sha256>/` so previous artifacts are preserved. The directory
 is ignored by Git. It does not bump versions, change release dates, create commits
 or tags, or publish. Set the intended version and write its notes before running.
+
+### Configurable duplicate syntax exemptions
+
+`no-duplicate-strings` accepts `ignoreSyntax`, with all categories enabled by default:
+
+```js
+createConfig({ duplicates: {
+  ignoreSyntax: { jsx: false, svg: true, constDefinitions: false },
+} });
+```
+
+`jsx` controls attribute values and rendered expressions outside SVG; `svg` controls
+SVG markup independently; `constDefinitions` controls extracted constant values.
+Setting a category to `false` includes it in duplicate counts and reports. Imports,
+type declarations, directives, object keys, and property-name access stay exempt.
+Behavioral contracts are still checked regardless of presentation exemptions.
+These switches affect string duplication, not `no-duplicate-constants`.

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.0 - Unreleased
+
+- Add independent JSX, SVG, and const-definition exemptions for duplicate strings.
+- Preserve existing defaults and structural exclusions.
+
 ## 1.3.1 - Unreleased
 
 - Add release metadata and archive checks, run quality gates, and preserve local artifacts in content-hashed directories without publishing.

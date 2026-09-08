@@ -459,6 +459,7 @@ function normalizeOptions(rawOptions = {}) {
 
   return {
     sinks,
+    ignoreSyntax: { jsx: true, svg: true, constDefinitions: true, ...rawOptions.ignoreSyntax },
     actionTypeCallees: new Set(actionTypeCallees),
     actionTypeProperty: rawOptions.actionTypeProperty ?? DEFAULT_ACTION_TYPE_PROPERTY,
     minDuplicates:
@@ -474,21 +475,17 @@ function normalizeOptions(rawOptions = {}) {
 /**
  * Identifies presentation and declaration positions exempt from duplication.
  * @param {*} node - Original literal expression.
+ * @param {object} ignoreSyntax - Independently enabled syntax exemptions.
  * @returns {*} Whether the position is exempt.
  */
-function isAllowlistedPosition(node) {
-  return (
-    isImportOrExportSource(node) ||
-    isTypeOnlyLiteral(node) ||
-    isEnumMemberInitializer(node) ||
-    isInOperatorLeftOperand(node) ||
-    isJsxAttributeValueLiteral(node) ||
-    isVisibleJsxCopyLiteral(node) ||
-    isSvgMarkupLiteral(node) ||
-    isObjectKey(node) ||
-    isMemberPropertyName(node) ||
-    isExtractedConstantLiteral(node)
-  );
+function isAllowlistedPosition(node, ignoreSyntax) {
+  if (isImportOrExportSource(node) || isTypeOnlyLiteral(node) ||
+      isEnumMemberInitializer(node) || isInOperatorLeftOperand(node) ||
+      isObjectKey(node) || isMemberPropertyName(node)) return true;
+  // SVG is a distinct category so JSX settings cannot mask an explicit SVG override.
+  if (isSvgMarkupLiteral(node)) return ignoreSyntax.svg;
+  if (isJsxAttributeValueLiteral(node) || isVisibleJsxCopyLiteral(node)) return ignoreSyntax.jsx;
+  return ignoreSyntax.constDefinitions && isExtractedConstantLiteral(node);
 }
 
 /** Transparent TypeScript wrappers preserve the runtime expression context. */
@@ -669,7 +666,7 @@ const stringAnalysis = {
       if (isDirectiveLiteral(node) || isTypeofComparisonLiteral(contextNode, value)) return;
 
       const suspicious = isSuspiciousContext(node, detection === "duplicates" ? duplicateContractOptions : options);
-      if (!suspicious && isAllowlistedPosition(node)) return;
+      if (!suspicious && isAllowlistedPosition(node, options.ignoreSyntax)) return;
 
       if (detection === "reuse") {
         const name = suspicious ? findVisibleConstant(node, value, context.sourceCode) : null;
@@ -757,6 +754,11 @@ export function createFocusedStringRule(detection) {
   if (detection === "duplicates") {
     const contractProperties = { ...properties };
     delete contractProperties.minDuplicates;
+    properties.ignoreSyntax = {
+      type: "object",
+      properties: { jsx: { type: "boolean" }, svg: { type: "boolean" }, constDefinitions: { type: "boolean" } },
+      additionalProperties: false,
+    };
     properties.ignoreContracts = { type: "boolean" };
     properties.contractOptions = {
       type: "object", properties: contractProperties, additionalProperties: false,

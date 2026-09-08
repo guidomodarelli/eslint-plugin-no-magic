@@ -17,6 +17,8 @@ export interface NoMagicContractsOptions {
 
 /** Configures duplicate detection independently from contract rules. */
 export interface NoDuplicateStringsOptions {
+  /** Defaults to true per category; JSX excludes SVG, which has its own switch. */
+  ignoreSyntax?: { jsx?: boolean; svg?: boolean; constDefinitions?: boolean };
   /** Zero disables duplication; positive integers set the occurrence threshold. */
   minDuplicates?: number;
   ignoreStrings?: string[];
