@@ -84,7 +84,8 @@ export function createConfig(settings = {}) {
    */
   function advisory(name, ruleName, inherited = {}) {
     const value = settings[name];
-    if (value === undefined || value === false) return {};
+    if (value === undefined) return {};
+    if (value === false) return { [ruleName]: "off" };
     if (value !== true && (!value || typeof value !== "object" || Array.isArray(value))) {
       throw new TypeError(`createConfig: ${name} must be a boolean or options object`);
     }

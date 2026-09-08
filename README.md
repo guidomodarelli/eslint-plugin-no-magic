@@ -447,3 +447,22 @@ does not execute code, resolve imports, or prove arbitrary call ordering.
 The benchmark's shadowing fixtures use arrows created after their declarations.
 Historical diagnostic baselines predate this boundary audit; capture a new
 `--baseline` before using `--compare` with the revised fixtures.
+
+### Overlapping configurations
+
+ESLint applies matching flat-config entries in order. Each `createConfig` entry
+supplies complete core string-rule options, so a later matching helper replaces
+those earlier options with its supplied values and defaults. A manual severity-only
+override retains existing rule options, following ESLint behavior.
+
+Advisory options that are omitted inherit earlier matching entries. Explicit
+`reuse: false` or `constantDuplicates: false` emits `off`, disabling earlier rules.
+When changing shared contracts in a narrower helper, repeat `reuse: true` if you
+want the inherited reuse rule to receive the new contracts.
+
+```js
+export default [
+  ...createConfig({ reuse: true, constantDuplicates: true }),
+  ...createConfig({ files: ["tests/**/*.js"], reuse: false, constantDuplicates: false }),
+];
+```

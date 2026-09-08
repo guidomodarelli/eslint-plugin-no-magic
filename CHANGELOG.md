@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.4 - Unreleased
+
+- Verify overlapping file configs, severity overrides and advisory inheritance.
+- Make explicit false advisory settings disable previously enabled rules.
+
 ## 1.7.3 - Unreleased
 
 - Audit destructuring, imports, expressions and closure visibility for reuse suggestions.
