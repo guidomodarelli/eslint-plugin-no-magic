@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.0 - Unreleased
+
+- Add exact constant-name exclusions to both advisory constant rules.
+- Preserve lexical shadowing and allow combined name/value exclusions.
+
 ## 1.4.0 - Unreleased
 
 - Add independent JSX, SVG, and const-definition exemptions for duplicate strings.

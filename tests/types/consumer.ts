@@ -1,7 +1,7 @@
 /** Validates typed public configuration as consumed by an ESLint project. @module consumer */
 import type { Linter } from "eslint";
 import formatter from "eslint-plugin-no-magic/formatter";
-import plugin, { createConfig, recommendedMagicNumberOptions, type NoMagicContractsOptions, type NoDuplicateStringsOptions } from "eslint-plugin-no-magic";
+import plugin, { createConfig, recommendedMagicNumberOptions, type NoMagicContractsOptions, type NoDuplicateStringsOptions, type PreferExistingConstantOptions, type NoDuplicateConstantsOptions } from "eslint-plugin-no-magic";
 
 /** Consumer options use the exported contract without casts. */
 const options: NoMagicContractsOptions = {
@@ -35,3 +35,7 @@ void invalidDuplicate;
 
 export const sharedConfig: Linter.Config[] = createConfig({ contracts: contractOptions, duplicates: { minDuplicates: 3 } });
 void formatter;
+
+/** Name exclusions are supported by both optional constant rules. */
+export const reuseOptions: PreferExistingConstantOptions = { ignoreConstantNames: ["LOCAL_TIMEOUT"] };
+export const definitionOptions: NoDuplicateConstantsOptions = { ignoreConstantNames: ["LOCAL_TIMEOUT"], ignoreValues: [100] };

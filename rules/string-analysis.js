@@ -547,15 +547,17 @@ function getContractReason(node, options) {
  * @param {object} node - Inline contract expression.
  * @param {string} value - Static string value to reuse.
  * @param {object} sourceCode - ESLint scope information.
+ * @param {Set<string>} ignoredNames - Constant names excluded from reuse suggestions.
  * @returns {string|null} Visible constant identifier, if statically known.
  */
-function findVisibleConstant(node, value, sourceCode) {
+function findVisibleConstant(node, value, sourceCode, ignoredNames) {
   const shadowed = new Set();
   let scope = sourceCode.getScope(node);
   while (scope) {
     for (const variable of scope.variables) {
       if (shadowed.has(variable.name)) continue;
       shadowed.add(variable.name);
+      if (ignoredNames.has(variable.name)) continue;
       for (const definition of variable.defs) {
         const declaration = definition.node;
         if (definition.parent?.kind !== "const" || declaration.id?.type !== "Identifier" ||
@@ -638,6 +640,7 @@ const stringAnalysis = {
     const options = normalizeOptions(context.options[0]);
     const reportContracts = detection === "contracts";
     if (detection !== "duplicates") options.minDuplicates = 0;
+    const ignoredNames = new Set(context.options[0]?.ignoreConstantNames ?? []);
     const duplicateCandidates = new Map();
     const reportedNodes = new Set();
     const ignoreContracts = detection === "duplicates" && context.options[0]?.ignoreContracts !== false;
@@ -669,7 +672,7 @@ const stringAnalysis = {
       if (!suspicious && isAllowlistedPosition(node, options.ignoreSyntax)) return;
 
       if (detection === "reuse") {
-        const name = suspicious ? findVisibleConstant(node, value, context.sourceCode) : null;
+        const name = suspicious ? findVisibleConstant(node, value, context.sourceCode, ignoredNames) : null;
         if (name) context.report({ node, messageId: "existingConstant", data: { name } });
         return;
       }
@@ -751,6 +754,9 @@ const stringAnalysis = {
 export function createFocusedStringRule(detection) {
   const properties = { ...stringAnalysis.meta.schema[0].properties };
   if (detection !== "duplicates") delete properties.minDuplicates;
+  if (detection === "reuse") properties.ignoreConstantNames = {
+    type: "array", items: { type: "string" }, uniqueItems: true,
+  };
   if (detection === "duplicates") {
     const contractProperties = { ...properties };
     delete contractProperties.minDuplicates;

@@ -53,6 +53,36 @@ it("should ignore trivial and runtime-dependent initializers", () => {
   assert.equal(lint('const FIRST = 1; const SECOND = 1; const THIRD = load(); const FOURTH = load();', "no-duplicate-constants").length, 0);
 });
 
+it("should exclude names as both duplicate candidates and reported definitions", () => {
+  const code = 'const FIRST = 5000; const SECOND = 5000;';
+  for (const name of ["FIRST", "SECOND"]) {
+    assert.equal(lint(code, "no-duplicate-constants", { ignoreConstantNames: [name] }).length, 0);
+  }
+  assert.equal(lint(code, "no-duplicate-constants", { ignoreConstantNames: ["first"] }).length, 1);
+});
+
+it("should exclude reuse names without hiding other visible candidates", () => {
+  const code = 'const FIRST = "pending"; const SECOND = "pending"; status === "pending";';
+  const messages = lint(code, "prefer-existing-constant", { ignoreConstantNames: ["FIRST"] });
+  assert.equal(messages.length, 1);
+  assert.ok(messages[0].message.includes("SECOND"));
+  assert.equal(lint(code, "prefer-existing-constant", { ignoreConstantNames: ["FIRST", "SECOND"] }).length, 0);
+});
+
+it("should preserve shadowing and combine name and value exclusions", () => {
+  assert.equal(lint('const FIRST = "pending"; function read(FIRST) { return status === "pending"; }', "prefer-existing-constant", { ignoreConstantNames: ["OTHER"] }).length, 0);
+  assert.equal(lint('const FIRST = 5000; const SECOND = 5000; const THIRD = 6000; const FOURTH = 6000;', "no-duplicate-constants", {
+    ignoreConstantNames: ["FIRST"], ignoreValues: [6000],
+  }).length, 0);
+});
+
+for (const name of ["prefer-existing-constant", "no-duplicate-constants"]) {
+  it(`should reject invalid name exclusions for ${name}`, () => {
+    assert.throws(() => lint("", name, { ignoreConstantNames: [123] }), /should be string/);
+    assert.throws(() => lint("", name, { ignoreConstantNames: ["FIRST", "FIRST"] }), /duplicate items/);
+  });
+}
+
 it("should treat imported libraries equally instead of granting framework exemptions", () => {
   const library = (source) => `import { Font } from "${source}"; Font({values: ["latin", "latin", "latin"]});`;
   const first = lint(library("next/font/google"), "no-duplicate-strings");

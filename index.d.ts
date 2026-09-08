@@ -29,7 +29,17 @@ export interface NoDuplicateStringsOptions {
 }
 
 /** Configures advisory detection of repeated primitive definitions. */
-export interface NoDuplicateConstantsOptions { ignoreValues?: Array<string | number>; }
+export interface NoDuplicateConstantsOptions {
+  ignoreValues?: Array<string | number>;
+  /** Exact, case-sensitive names excluded as both candidates and diagnostics. */
+  ignoreConstantNames?: string[];
+}
+
+/** Configures optional string-constant reuse suggestions. */
+export interface PreferExistingConstantOptions extends NoMagicContractsOptions {
+  /** Exact, case-sensitive names that must not be suggested. */
+  ignoreConstantNames?: string[];
+}
 
 /** Defines shared contracts and independently configurable policies. */
 export interface CreateConfigOptions {

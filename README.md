@@ -349,3 +349,15 @@ Setting a category to `false` includes it in duplicate counts and reports. Impor
 type declarations, directives, object keys, and property-name access stay exempt.
 Behavioral contracts are still checked regardless of presentation exemptions.
 These switches affect string duplication, not `no-duplicate-constants`.
+
+### Exclude constant names
+
+Both advisory constant rules accept `ignoreConstantNames: ["HTTP_TIMEOUT_MS"]`.
+Names are exact and case-sensitive, not patterns. The duplicate-definition rule
+excludes those names as both candidates and reported declarations. The reuse
+rule never suggests excluded names and still respects lexical shadowing; it may
+suggest another visible, non-excluded constant with the same value. These options
+do not affect the independent string contract and duplicate-string rules.
+
+Use `PreferExistingConstantOptions` or `NoDuplicateConstantsOptions` for typed
+configuration. Value-level and name-level exclusions can be combined.
