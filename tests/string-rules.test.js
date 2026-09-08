@@ -42,9 +42,7 @@ const cases = {
     { code: 'label("A"); label("A"); label("A");' },
     { code: 'typeof input === ("string" as const); typeof input === `string`;' },
     { code: 'status === "A";', options: [{ ignoreStrings: ["A"] }] },
-    {
-      code: 'import { Font as loadFont } from "next/font/google"; loadFont({ subsets: ["latin", "latin", "latin"] });',
-    },
+
     { code: 'const STATES = { blocked: "blocked" } satisfies Record<string, string>;' },
 
     // Property-existence check: the literal names a property, not a value.
@@ -132,6 +130,10 @@ const cases = {
     },
   ],
   invalid: [
+    {
+      code: 'import { Font as loadFont } from "next/font/google"; loadFont({ subsets: ["latin", "latin", "latin"] });',
+      errors: [duplicateString, duplicateString, duplicateString],
+    },
     { code: 'router.push(ready ? "/checkout" : "/login");', errors: [noMagicString, noMagicString] },
     { code: 'router.push(route || "/login");', errors: [noMagicString] },
     { code: 'router.push(ready ? ("/checkout" as const) : (route ?? "/login"));', errors: [noMagicString, noMagicString] },

@@ -19,7 +19,6 @@ const TYPEOF_RESULT_LITERALS = new Set([
   "undefined",
 ]);
 const EQUALITY_OPERATORS = new Set(["===", "!==", "==", "!="]);
-const NEXT_FONT_IMPORT_SOURCE_PREFIX = "next/font/";
 const SVG_ELEMENT_NAMES = new Set([
   "circle",
   "clipPath",
@@ -118,58 +117,6 @@ function getStaticPropertyName(key, computed) {
  */
 function getPropertyKeyName(property) {
   return getStaticPropertyName(property.key, property.computed);
-}
-
-/**
- * Resolves the nearest binding instead of matching shadowed import names.
- * @param {object} callExpression - Loader call to resolve.
- * @param {string} calleeName - Local identifier used by the call.
- * @param {object} sourceCode - ESLint source and scope information.
- * @returns {boolean} Whether the binding belongs to next/font.
- */
-function isImportedFromNextFont(callExpression, calleeName, sourceCode) {
-  let scope = sourceCode.getScope(callExpression);
-  while (scope) {
-    const variable = scope.set.get(calleeName);
-    if (variable) {
-      return variable.defs.some((definition) =>
-        definition.type === "ImportBinding" &&
-        definition.parent?.source?.value?.startsWith(NEXT_FONT_IMPORT_SOURCE_PREFIX)
-      );
-    }
-    scope = scope.upper;
-  }
-  return false;
-}
-
-/**
- * Checks whether a literal belongs to a resolved next/font call.
- * @param {*} node - Literal or enclosing expression.
- * @param {*} sourceCode - ESLint source and scope information.
- * @returns {*} Whether loader options are exempt.
- */
-function isInsideNextFontLoaderCall(node, sourceCode) {
-  let current = node;
-
-  while (current) {
-    const parent = getParent(current);
-
-    if (!parent) {
-      return false;
-    }
-
-    if (
-      parent.type === "CallExpression" &&
-      parent.arguments.includes(current) &&
-      parent.callee.type === "Identifier"
-    ) {
-      return isImportedFromNextFont(parent, parent.callee.name, sourceCode);
-    }
-
-    current = parent;
-  }
-
-  return false;
 }
 
 function isJsxAttributeValueLiteral(node) {
@@ -525,10 +472,9 @@ function normalizeOptions(rawOptions = {}) {
 /**
  * Identifies presentation and declaration positions exempt from duplication.
  * @param {*} node - Original literal expression.
- * @param {*} sourceCode - ESLint source and scope information.
  * @returns {*} Whether the position is exempt.
  */
-function isAllowlistedPosition(node, sourceCode) {
+function isAllowlistedPosition(node) {
   return (
     isImportOrExportSource(node) ||
     isTypeOnlyLiteral(node) ||
@@ -539,8 +485,7 @@ function isAllowlistedPosition(node, sourceCode) {
     isSvgMarkupLiteral(node) ||
     isObjectKey(node) ||
     isMemberPropertyName(node) ||
-    isExtractedConstantLiteral(node) ||
-    isInsideNextFontLoaderCall(node, sourceCode)
+    isExtractedConstantLiteral(node)
   );
 }
 
@@ -691,7 +636,7 @@ const stringAnalysis = {
       if (isDirectiveLiteral(node) || isTypeofComparisonLiteral(contextNode, value)) return;
 
       const suspicious = isSuspiciousContext(node, detection === "duplicates" ? duplicateContractOptions : options);
-      if (!suspicious && isAllowlistedPosition(node, context.sourceCode)) return;
+      if (!suspicious && isAllowlistedPosition(node)) return;
 
       if (suspicious && reportContracts) {
         context.report({ node, messageId: "noMagicString", data: { reason: getContractReason(node, options) } });

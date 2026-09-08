@@ -54,3 +54,9 @@ ESLint rejects configurations that still enable `no-magic/no-magic-strings`.
 Run `pnpm install --frozen-lockfile`, `pnpm test`, `pnpm lint`, and
 `pnpm typecheck`. TypeScript 7 runs `tsc`; the TS6 compatibility package supplies
 the API required by typescript-eslint. No mocks replace the parser.
+
+## Agnostic rules and shared configuration
+
+Package-specific exemptions (including the former next/font exemption) are gone.
+Repeated values in those calls now follow the same rules as any other library.
+Use an explicit `ignoreStrings` allowlist if needed for your project.

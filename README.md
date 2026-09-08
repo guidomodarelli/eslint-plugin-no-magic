@@ -20,7 +20,8 @@ Everything else is ignored by default: JSX attribute values, visible JSX copy,
 structural literals inside inline SVG markup, `import`/`export` sources, runtime
 directives (`"use client"`), `typeof` comparison vocabulary, object keys,
 property-name access, TypeScript literal-union types, `enum` member
-initializers, extracted `const` definitions, and `next/font` loader options.
+initializers and extracted `const` definitions. No imports, packages, or
+framework names receive special exemptions. JSX and SVG handling is syntax-based.
 
 ## Install
 

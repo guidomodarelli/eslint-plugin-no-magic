@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.1 - Unreleased
+
+- Treat imported packages uniformly while preserving syntax-based exclusions and regression coverage.
+
 ## 1.1.0 - Unreleased
 
 - Add createConfig to synchronize contract definitions, isolate option copies, and configure independent severities.
