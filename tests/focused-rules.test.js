@@ -46,7 +46,7 @@ import plugin from "../index.js";
   it(`should count repeated contracts independently with ESLint ${Linter.version}`, () => {
     const messages = new Linter().verify('track("event"); track("event");', [{
       plugins: { "no-magic": plugin },
-      rules: { "no-magic/no-duplicate-strings": ["warn", { minDuplicates: 2 }] },
+      rules: { "no-magic/no-duplicate-strings": ["warn", { minDuplicates: 2, ignoreContracts: false }] },
     }]);
     assert.equal(messages.length, 2);
     assert.ok(messages.every((message) => message.messageId === "duplicateString"));

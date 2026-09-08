@@ -55,7 +55,7 @@ plugin.configs.recommended = [
     },
     rules: {
       "no-magic/no-magic-contracts": "error",
-      "no-magic/no-duplicate-strings": "warn",
+      "no-magic/no-duplicate-strings": ["warn", { ignoreContracts: true }],
     },
   },
 ];

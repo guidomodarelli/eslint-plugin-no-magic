@@ -21,11 +21,16 @@ export default [
 ];
 ```
 
-The duplicate rule accepts only `minDuplicates` and `ignoreStrings`. The contract
-rule accepts the combined rule's options except `minDuplicates`. When both rules
-are enabled, a repeated contract can receive both diagnostics, because each rule
-expresses a separate policy. To preserve combined reporting and one diagnostic
-per node, use only `no-magic/no-magic-strings` with manual plugin registration.
+The duplicate rule accepts `minDuplicates`, `ignoreStrings`, `ignoreContracts`,
+and `contractOptions`. The contract rule accepts the combined rule's options
+except `minDuplicates`. Starting with 0.2.1, `ignoreContracts` defaults to `true` in both manual
+configurations and the recommended preset: contract positions contribute to duplicate counts but
+do not receive a second diagnostic. Set it to `false` to restore overlap or to
+report duplicate contracts after disabling the contract rule. For custom sinks,
+dispatchers, or contract allowlists, pass the same configuration to the duplicate
+rule's `contractOptions`. Classification does not inspect whether another rule
+is enabled. To preserve combined reporting and one diagnostic per node, use only
+`no-magic/no-magic-strings` with manual plugin registration.
 Do not enable the combined rule alongside the recommended preset.
 
 ## Detection changes

@@ -25,7 +25,7 @@ void invalidSink;
 
 /** Independent rules expose options without unrelated policy fields. */
 export const contractOptions: NoMagicContractsOptions = { sinks: ["track"] };
-export const duplicateOptions: NoDuplicateStringsOptions = { minDuplicates: 4 };
+export const duplicateOptions: NoDuplicateStringsOptions = { minDuplicates: 4, ignoreContracts: true, contractOptions };
 // @ts-expect-error Contract rules do not accept duplicate thresholds.
 const invalidContract: NoMagicContractsOptions = { minDuplicates: 3 };
 // @ts-expect-error Duplicate rules do not accept sink configuration.

@@ -21,7 +21,12 @@ export interface NoMagicStringsOptions {
 export type NoMagicContractsOptions = Omit<NoMagicStringsOptions, "minDuplicates">;
 
 /** Configures duplicate detection independently from contract rules. */
-export type NoDuplicateStringsOptions = Pick<NoMagicStringsOptions, "minDuplicates" | "ignoreStrings">;
+export type NoDuplicateStringsOptions = Pick<NoMagicStringsOptions, "minDuplicates" | "ignoreStrings"> & {
+  /** Omit duplicate reports on contract positions while retaining their count. Defaults to true. */
+  ignoreContracts?: boolean;
+  /** Match the custom classification used by the contract rule. */
+  contractOptions?: NoMagicContractsOptions;
+};
 
 /** Exposes the recommended options for the upstream TypeScript number rule. */
 export const recommendedMagicNumberOptions: {

@@ -665,6 +665,8 @@ const noMagicStringsRule = {
     if (detection === "contracts") options.minDuplicates = 0;
     const duplicateCandidates = new Map();
     const reportedNodes = new Set();
+    const ignoreContracts = detection === "duplicates" && context.options[0]?.ignoreContracts !== false;
+    const duplicateContractOptions = normalizeOptions(context.options[0]?.contractOptions);
 
     function collectDuplicateCandidate(value, node) {
       const existingNodes = duplicateCandidates.get(value);
@@ -688,11 +690,14 @@ const noMagicStringsRule = {
       const contextNode = getContextNode(node);
       if (isDirectiveLiteral(node) || isTypeofComparisonLiteral(contextNode, value)) return;
 
-      const suspicious = isSuspiciousContext(node, options);
+      const suspicious = isSuspiciousContext(node, detection === "duplicates" ? duplicateContractOptions : options);
       if (!suspicious && isAllowlistedPosition(node, context.sourceCode)) return;
 
       if (suspicious && reportContracts) {
         context.report({ node, messageId: "noMagicString", data: { reason: getContractReason(node, options) } });
+        reportedNodes.add(node);
+      }
+      if (ignoreContracts && suspicious && !duplicateContractOptions.ignoreStrings.has(value)) {
         reportedNodes.add(node);
       }
       // Single characters are exempt only from duplicate detection.
@@ -767,6 +772,12 @@ export function createFocusedStringRule(detection) {
   const properties = { ...noMagicStringsRule.meta.schema[0].properties };
   if (detection === "contracts") delete properties.minDuplicates;
   if (detection === "duplicates") {
+    const contractProperties = { ...properties };
+    delete contractProperties.minDuplicates;
+    properties.ignoreContracts = { type: "boolean" };
+    properties.contractOptions = {
+      type: "object", properties: contractProperties, additionalProperties: false,
+    };
     delete properties.sinks;
     delete properties.actionTypeCallees;
     delete properties.actionTypeProperty;

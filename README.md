@@ -63,7 +63,7 @@ export default [
 ## Independent rules
 
 The recommended preset enables `no-magic-contracts` as an error and
-`no-duplicate-strings` as a warning. Both can be configured independently:
+`no-duplicate-strings` as a warning with `ignoreContracts: true`. Both can be configured independently:
 
 ```js
 export default [
@@ -76,9 +76,30 @@ export default [
 ```
 
 `no-magic-contracts` accepts `sinks`, `actionTypeCallees`, `actionTypeProperty`,
-and `ignoreStrings`. `no-duplicate-strings` accepts `minDuplicates` and
-`ignoreStrings`. A repeated contract may receive diagnostics from both rules.
-Disable the duplicate rule if only contract detection is wanted.
+and `ignoreStrings`. `no-duplicate-strings` accepts `minDuplicates`,
+`ignoreStrings`, `ignoreContracts`, and `contractOptions`.
+
+`ignoreContracts` defaults to `true` in all configurations. It omits duplicate diagnostics on contract positions
+while retaining those occurrences in the duplicate count. This is a syntactic
+classification, not coordination between enabled rules: if you disable the
+contract rule and want duplicate reports everywhere, set `ignoreContracts: false`.
+
+When customizing contract detection, pass the same options to `contractOptions`:
+
+```js
+const contractOptions = { sinks: [{ callee: "client.send", argumentIndex: 1 }] };
+// Rules in your flat configuration:
+const rules = {
+  "no-magic/no-magic-contracts": ["error", contractOptions],
+  "no-magic/no-duplicate-strings": ["warn", {
+    ignoreContracts: true, contractOptions, minDuplicates: 3,
+  }],
+};
+```
+
+A value in `contractOptions.ignoreStrings` remains eligible for duplication;
+`ignoreStrings` on the duplicate rule itself excludes it entirely. Disable the
+duplicate rule if only contract detection is wanted.
 
 The combined `no-magic-strings` rule remains available for manual configurations
 and emits at most one diagnostic per node. Do not enable it alongside the two
@@ -221,7 +242,8 @@ packaged consumer test. This follows Microsoft's
 ## Performance baseline
 
 `pnpm benchmark` compares parsing alone, the combined rule, and the recommended
-independent rules on 300, 3,000, and 15,000 literals. Every run asserts diagnostic
+independent rules on 300, 3,000, and 15,000 literals in JavaScript, JSX,
+TypeScript, and expressions with 40 nested conditional branches. Every run asserts diagnostic
 counts. It records the median of five measured runs after two warmups, along
 with Node, ESLint, OS, and CPU metadata. See [the baseline](benchmarks/RESULTS.md).
 The benchmark includes parsing and diagnostic construction; it is not an isolated
