@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.2 - Unreleased
+
+- Test minimum Node 26.0.0 and current Node 26.x on both CI operating systems.
+- Verify local minimum-runtime tests, type checks, lint and frozen installation.
+
 ## 1.7.1 - Unreleased
 
 - Measure retained heap and sampled peaks across unique files in isolated processes.

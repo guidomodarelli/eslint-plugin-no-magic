@@ -423,3 +423,11 @@ Node processes. It verifies diagnostics on 100 files with multiple scopes and
 records heap after explicit GC, retained delta, sampled peak heap, and RSS.
 [The memory report](benchmarks/MEMORY-RESULTS.md) explains the methodology and limits.
 This is a diagnostic benchmark, not a leak assertion or CI memory threshold.
+
+### Minimum runtime compatibility
+
+CI runs both Node 26.0.0 (the minimum allowed by `engines.node`) and the current
+26.x version selected by `.nvmrc`, on Linux and Windows. Each combination installs
+from the frozen lockfile and runs lint, public type checks and the full test suite,
+including packaged-consumer integration. Locally, the same checks passed on
+Windows with Node 26.0.0 and 26.8.1. Remote CI execution is separate from local validation.
