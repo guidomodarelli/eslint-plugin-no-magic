@@ -185,8 +185,8 @@ const cases = {
     {
       code: 'status === "pending"; label("pending"); label("pending");',
       errors: [noMagicString,
-        { messageId: "duplicateString", data: { value: "pending", count: "3" } },
-        { messageId: "duplicateString", data: { value: "pending", count: "3" } }],
+        { messageId: "duplicateString", data: { value: '"pending"', count: "3", firstLocation: "1:12" } },
+        { messageId: "duplicateString", data: { value: '"pending"', count: "3", firstLocation: "1:12" } }],
     },
     { code: 'status === "A"; dispatch({type: "B"}); router.push("/");', errors: [noMagicString, noMagicString, noMagicString] },
     {

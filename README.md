@@ -292,3 +292,30 @@ scopes are independent. Neither rule applies automatic fixes: equal values can
 represent different business concepts. Neither infers cross-file ownership,
 folder placement, deployment configuration, or whether a shared constant is safe
 for client/server boundaries. Both are opt-in and absent from the recommended preset.
+
+## Visual formatter
+
+Consumer CLI usage:
+
+```bash
+pnpm exec eslint . --format ./node_modules/eslint-plugin-no-magic/formatter.js
+```
+
+The formatter shows severity colors, Unicode frames, numbered source excerpts,
+underlined ranges, rule IDs, and a summary. Duplicate messages include the first
+eligible occurrence's line and column. It uses source supplied by ESLint and does
+not read other files. Long lines are clipped around the diagnostic.
+
+For programmatic control:
+
+```js
+import { createFormatter } from "eslint-plugin-no-magic/formatter";
+const format = createFormatter({ color: false, unicode: false });
+console.log(format(results));
+```
+
+Color is detected from the terminal, honors `NO_COLOR` and `FORCE_COLOR`, and can
+be overridden explicitly. Unicode decoration is enabled by default; the ASCII
+mode disables it. Control characters are escaped to prevent terminal injection.
+Terminal-specific ambiguous Unicode widths may differ. Editors and JSON formatters
+still receive ordinary text messages with standard ESLint source locations.

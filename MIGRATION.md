@@ -60,3 +60,6 @@ the API required by typescript-eslint. No mocks replace the parser.
 Package-specific exemptions (including the former next/font exemption) are gone.
 Repeated values in those calls now follow the same rules as any other library.
 Use an explicit `ignoreStrings` allowlist if needed for your project.
+
+Prefer `createConfig({ contracts, duplicates })` to manually duplicating contract
+options. Optional constant rules and the terminal formatter require explicit opt-in.

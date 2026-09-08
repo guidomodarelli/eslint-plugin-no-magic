@@ -60,6 +60,8 @@ const DEFAULT_ACTION_TYPE_CALLEES = ["dispatch"];
 const DEFAULT_ACTION_TYPE_PROPERTY = "type";
 const DEFAULT_MIN_DUPLICATES = 3;
 const SINGLE_CHARACTER_LENGTH = 1;
+/** Maximum literal preview length in diagnostic messages. */
+const DIAGNOSTIC_PREVIEW_LENGTH = 80;
 
 function getParent(node) {
   return node.parent ?? null;
@@ -626,7 +628,7 @@ const stringAnalysis = {
       noMagicString:
         "Extract this {{reason}} into a named constant or configuration value.",
       duplicateString:
-        'This string literal "{{value}}" is repeated {{count}} times; extract it into a named constant.',
+        'String {{value}} is repeated {{count}} times. First occurrence: {{firstLocation}}. Extract a named constant.',
     },
   },
   /**
@@ -735,7 +737,7 @@ const stringAnalysis = {
             context.report({
               node,
               messageId: "duplicateString",
-              data: { value, count: String(nodes.length) },
+              data: { value: JSON.stringify(value.length > DIAGNOSTIC_PREVIEW_LENGTH ? `${value.slice(0, DIAGNOSTIC_PREVIEW_LENGTH)}...` : value), count: String(nodes.length), firstLocation: `${nodes[0].loc.start.line}:${nodes[0].loc.start.column + 1}` },
             });
           }
         }

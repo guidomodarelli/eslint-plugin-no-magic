@@ -6,7 +6,7 @@ import { createRequire } from "node:module";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL, URL } from "node:url";
 import { it } from "vitest";
-import { Linter } from "eslint";
+import { ESLint, Linter } from "eslint";
 
 /** Anchors packing and cleanup to the repository containing this test. */
 const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
@@ -28,6 +28,11 @@ it("should lint and typecheck a consumer when the published artifact is extracte
     const { default: plugin } = await import(pathToFileURL(join(packageRoot, "index.js")).href);
     const messages = new Linter().verify('router.push(ready ? "/checkout" : "/login");', plugin.configs.recommended);
     assert.deepEqual(messages.map((message) => message.messageId), ["noMagicString", "noMagicString"]);
+
+    const eslint = new ESLint({ overrideConfigFile: true, overrideConfig: plugin.configs.recommended });
+    const formatter = await eslint.loadFormatter(join(packageRoot, "formatter.js"));
+    const results = await eslint.lintText('track("event");');
+    assert.ok((await formatter.format(results)).includes("configured call argument"));
 
     // Resolve the public package export from a separate consumer directory.
     const consumerRoot = join(fixtureRoot, "consumer");

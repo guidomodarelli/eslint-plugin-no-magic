@@ -1,5 +1,6 @@
 /** Validates typed public configuration as consumed by an ESLint project. @module consumer */
 import type { Linter } from "eslint";
+import formatter from "eslint-plugin-no-magic/formatter";
 import plugin, { createConfig, recommendedMagicNumberOptions, type NoMagicContractsOptions, type NoDuplicateStringsOptions } from "eslint-plugin-no-magic";
 
 /** Consumer options use the exported contract without casts. */
@@ -33,3 +34,4 @@ void invalidContract;
 void invalidDuplicate;
 
 export const sharedConfig: Linter.Config[] = createConfig({ contracts: contractOptions, duplicates: { minDuplicates: 3 } });
+void formatter;

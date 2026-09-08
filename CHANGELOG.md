@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.0 - Unreleased
+
+- Include first duplicate locations and a terminal formatter with colors, Unicode frames, safe text handling, and ASCII output.
+
 ## 1.2.0 - Unreleased
 
 - Add visible-constant reuse and same-scope primitive duplication checks with public types and real parser tests.
