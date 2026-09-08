@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.1 - Unreleased
+
+- Build once per complete check, CI and release flow.
+- Keep standalone test, typecheck and pack commands self-contained.
+
 ## 1.8.0 - Unreleased
 
 - Migrate plugin implementation and formatter to strict TypeScript source.

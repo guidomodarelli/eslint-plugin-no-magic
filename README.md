@@ -496,3 +496,15 @@ The package test loads the compiled tarball and its formatter, then compiles a
 consumer using the package exports. `prepack` builds automatically. `dist/` and
 `releases/` are generated and ignored by Git. Tooling scripts and test fixtures
 remain JavaScript; the published plugin implementation is TypeScript-authored.
+
+### One-build validation flows
+
+`pnpm check` creates one fresh build, then runs the suite, consumer type checks,
+and lint against that output. CI and `release:prepare` use this flow. Release
+packing skips lifecycle scripts only after these gates succeed, so `prepack`
+does not compile the same output again.
+
+Standalone `pnpm test`, `pnpm typecheck`, benchmarks, and ordinary `pnpm pack`
+remain self-contained and build first. No timestamps or persistent skip flags
+are used to decide whether output is current. If build or validation fails,
+`check` stops and release preparation does not pack an artifact.

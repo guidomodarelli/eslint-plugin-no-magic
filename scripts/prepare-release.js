@@ -12,7 +12,7 @@ const root = fileURLToPath(new URL("../", import.meta.url));
 const metadata = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
 validateReleaseMetadata(metadata, readFileSync(join(root, "CHANGELOG.md"), "utf8"));
 
-for (const command of ["pnpm install --frozen-lockfile", "pnpm build", "pnpm test", "pnpm typecheck", "pnpm lint"]) {
+for (const command of ["pnpm install --frozen-lockfile", "pnpm check"]) {
   execSync(command, { cwd: root, stdio: "inherit" });
 }
 const releases = join(root, "releases");
@@ -20,7 +20,7 @@ mkdirSync(releases, { recursive: true });
 const staging = mkdtempSync(join(releases, "prepare-"));
 try {
   // Only the generated alphanumeric basename enters this command, never user input.
-  execSync(`pnpm pack --pack-destination releases/${basename(staging)}`, { cwd: root, stdio: "inherit" });
+  execSync(`pnpm --ignore-scripts pack --pack-destination releases/${basename(staging)}`, { cwd: root, stdio: "inherit" });
   const archive = readdirSync(staging).find((entry) => entry.endsWith(".tgz"));
   if (!archive) throw new Error("release: pnpm pack did not produce an archive");
   const archivePath = join(staging, archive);

@@ -1,6 +1,6 @@
 {
   "name": "eslint-plugin-no-magic",
-  "version": "1.8.0",
+  "version": "1.8.1",
   "description": "ESLint rule that flags magic string literals only in suspicious contexts (comparisons, switch cases, action types, analytics/storage/feature-flag/route sinks) and on duplication, instead of reporting every literal.",
   "type": "module",
   "license": "MIT",
@@ -41,7 +41,8 @@
     "benchmark:constants": "pnpm build && node benchmarks/constants.js",
     "benchmark:memory": "pnpm build && node benchmarks/memory.js",
     "build": "node scripts/build.js",
-    "prepack": "pnpm build"
+    "prepack": "pnpm build",
+    "check": "node scripts/check.js"
   },
   "peerDependencies": {
     "eslint": "^10.10.0"
