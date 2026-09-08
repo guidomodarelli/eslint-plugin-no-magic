@@ -202,6 +202,7 @@ enforces `const`.
 
 ```bash
 pnpm install
+pnpm build    # TypeScript implementation -> dist/ JavaScript and declarations
 pnpm test     # Vitest 5 + ESLint RuleTester
 pnpm lint
 pnpm typecheck # Public configuration types
@@ -308,7 +309,7 @@ for client/server boundaries. Both are opt-in and absent from the recommended pr
 Consumer CLI usage:
 
 ```bash
-pnpm exec eslint . --format ./node_modules/eslint-plugin-no-magic/formatter.js
+pnpm exec eslint . --format ./node_modules/eslint-plugin-no-magic/dist/formatter.js
 ```
 
 The formatter shows severity colors, Unicode frames, numbered source excerpts,
@@ -476,3 +477,22 @@ export default [
   ...createConfig({ files: ["tests/**/*.js"], reuse: false, constantDuplicates: false }),
 ];
 ```
+
+## TypeScript implementation and distribution
+
+Implementation lives in `src/` and compiles with TypeScript 7 in strict mode.
+`pnpm build` recreates `dist/` with ESM JavaScript and generated declarations.
+TypeScript checks unused bindings; ESLint checks the typed implementation using
+the real parser. AST and scope types are development-only dependencies.
+
+Public imports remain `eslint-plugin-no-magic` and
+`eslint-plugin-no-magic/formatter`. Consumers execute JavaScript and do not need
+TypeScript or a runtime loader. The formatter CLI path is now
+`./node_modules/eslint-plugin-no-magic/dist/formatter.js`.
+
+Tests and benchmarks import the compiled implementation; their pnpm commands build
+first. `typecheck` also validates a consumer against the generated declarations.
+The package test loads the compiled tarball and its formatter, then compiles a
+consumer using the package exports. `prepack` builds automatically. `dist/` and
+`releases/` are generated and ignored by Git. Tooling scripts and test fixtures
+remain JavaScript; the published plugin implementation is TypeScript-authored.

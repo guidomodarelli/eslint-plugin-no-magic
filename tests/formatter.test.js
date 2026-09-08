@@ -5,8 +5,8 @@ import { ESLint } from "eslint";
 import { stripVTControlCharacters } from "node:util";
 import process from "node:process";
 import { resolve } from "node:path";
-import { createFormatter } from "../formatter.js";
-import { createConfig } from "../index.js";
+import { createFormatter } from "../dist/formatter.js";
+import { createConfig } from "../dist/index.js";
 
 it("should honor NO_COLOR even when FORCE_COLOR is set", () => {
   const previousNoColor = process.env.NO_COLOR;

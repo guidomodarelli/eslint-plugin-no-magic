@@ -4,7 +4,7 @@ import { describe, it } from "vitest";
 import { RuleTester } from "eslint";
 import tsParser from "@typescript-eslint/parser";
 
-import plugin from "../index.js";
+import plugin from "../dist/index.js";
 
 RuleTester.describe = describe;
 RuleTester.it = it;

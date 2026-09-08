@@ -7,7 +7,7 @@ import { cpus, platform } from "node:os";
 import process from "node:process";
 import { fileURLToPath, URL } from "node:url";
 import { ESLint } from "eslint";
-import plugin from "../index.js";
+import plugin from "../dist/index.js";
 
 /** Each file stresses multiple scope indexes, repeated definitions, and unique values. */
 const SCOPES_PER_FILE = 8;

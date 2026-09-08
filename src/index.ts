@@ -7,6 +7,11 @@
  * with this plugin's defaults.
  */
 
+import type { ESLint, Linter, Rule } from "eslint";
+import type { CreateConfigOptions, NoMagicContractsOptions, NoDuplicateStringsOptions } from "./types.js";
+import { toESLintRule } from "./rule-adapter.js";
+export type * from "./types.js";
+
 import { createRequire } from "node:module";
 
 import noDuplicateConstants from "./rules/no-duplicate-constants.js";
@@ -29,36 +34,38 @@ export const recommendedMagicNumberOptions = {
 };
 
 /** Package metadata is the canonical source for the public plugin version. */
-const packageMetadata = createRequire(import.meta.url)("./package.json");
+const packageMetadata: { version: string } = createRequire(import.meta.url)("../package.json");
 
 /** Exposes rules and flat configuration to ESLint consumers. */
-const plugin = {
+type RuleName = "no-magic-contracts" | "no-duplicate-strings" | "prefer-existing-constant" | "no-duplicate-constants";
+/** Keeps generated public declarations independent of parser implementation types. */
+const plugin: ESLint.Plugin & { rules: Record<RuleName, Rule.RuleModule>; configs: { recommended: Linter.Config[] } } = {
   meta: {
     name: "eslint-plugin-no-magic",
     version: packageMetadata.version,
   },
   rules: {
-    "no-magic-contracts": createFocusedStringRule("contracts"),
-    "no-duplicate-strings": createFocusedStringRule("duplicates"),
-    "prefer-existing-constant": createFocusedStringRule("reuse"),
-    "no-duplicate-constants": noDuplicateConstants,
+    "no-magic-contracts": toESLintRule(createFocusedStringRule("contracts")),
+    "no-duplicate-strings": toESLintRule(createFocusedStringRule("duplicates")),
+    "prefer-existing-constant": toESLintRule(createFocusedStringRule("reuse")),
+    "no-duplicate-constants": toESLintRule(noDuplicateConstants),
   },
-  configs: {},
+  configs: { recommended: [] },
 };
 
 /** Public documentation root shared by all registered rule metadata. */
 const RULE_DOCUMENTATION_BASE_URL = "https://github.com/guidomodarelli/eslint-plugin-no-magic/blob/main/docs/rules";
 for (const [name, rule] of Object.entries(plugin.rules)) {
-  rule.meta.docs.url = `${RULE_DOCUMENTATION_BASE_URL}/${name}.md`;
+  rule.meta!.docs!.url = `${RULE_DOCUMENTATION_BASE_URL}/${name}.md`;
 }
 
 /**
  * Builds independent rule configuration from one shared contract definition.
- * @param {object} settings - Contracts, duplicate policy, severities, and optional file globs.
- * @returns {object[]} ESLint flat configuration with isolated option copies.
- * @throws {TypeError} When configuration contains unsupported top-level keys or severities.
+ * @param settings - Contracts, duplicate policy, severities, and optional file globs.
+ * @returns ESLint flat configuration with isolated option copies.
+ * @throws TypeError - When configuration contains unsupported top-level keys or severities.
  */
-export function createConfig(settings = {}) {
+export function createConfig(settings: CreateConfigOptions = {}): Linter.Config[] {
   if (!settings || typeof settings !== "object" || Array.isArray(settings)) {
     throw new TypeError("createConfig: settings must be an object");
   }
@@ -78,17 +85,17 @@ export function createConfig(settings = {}) {
   if (files !== undefined && (!Array.isArray(files) || files.some((pattern) => typeof pattern !== "string"))) {
     throw new TypeError("createConfig: files must be an array of glob strings");
   }
-  const contractOptions = JSON.parse(JSON.stringify(contracts));
-  const duplicateOptions = JSON.parse(JSON.stringify(duplicates));
+  const contractOptions: NoMagicContractsOptions = JSON.parse(JSON.stringify(contracts));
+  const duplicateOptions: Omit<NoDuplicateStringsOptions, "contractOptions"> = JSON.parse(JSON.stringify(duplicates));
   /**
    * Builds an opt-in advisory rule entry while preserving shared contract options.
-   * @param {string} name - Public helper option name.
-   * @param {string} ruleName - Registered rule identifier.
-   * @param {object} inherited - Shared options for this rule.
-   * @returns {object} Rule entry or an empty object when disabled.
-   * @throws {TypeError} When an advisory configuration or severity is invalid.
+   * @param name - Public helper option name.
+   * @param ruleName - Registered rule identifier.
+   * @param inherited - Shared options for this rule.
+   * @returns Rule entry or an empty object when disabled.
+   * @throws TypeError - When an advisory configuration or severity is invalid.
    */
-  function advisory(name, ruleName, inherited = {}) {
+  function advisory(name: "reuse" | "constantDuplicates", ruleName: string, inherited: object = {}): Linter.RulesRecord {
     const value = settings[name];
     if (value === undefined) return {};
     if (value === false) return { [ruleName]: "off" };

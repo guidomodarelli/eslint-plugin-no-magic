@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { URL } from "node:url";
 import { it } from "vitest";
 import { Linter } from "eslint";
-import plugin from "../index.js";
+import plugin from "../dist/index.js";
 
 for (const [name, rule] of Object.entries(plugin.rules)) {
   it(`should expose a dedicated documentation URL for ${name}`, () => {

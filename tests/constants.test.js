@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { it } from "vitest";
 import { Linter } from "eslint";
 import parser from "@typescript-eslint/parser";
-import plugin from "../index.js";
+import plugin from "../dist/index.js";
 
 /**
  * Lints a consumer snippet with one optional rule.

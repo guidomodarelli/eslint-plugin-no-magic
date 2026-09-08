@@ -8,7 +8,7 @@ import { performance } from "node:perf_hooks";
 import process from "node:process";
 import { URL } from "node:url";
 import { ESLint } from "eslint";
-import plugin from "../index.js";
+import plugin from "../dist/index.js";
 
 /** Candidate counts intentionally vary independently of lexical depth. */
 const CANDIDATE_COUNTS = [100, 500, 1000];

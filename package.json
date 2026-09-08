@@ -1,6 +1,6 @@
 {
   "name": "eslint-plugin-no-magic",
-  "version": "1.7.5",
+  "version": "1.8.0",
   "description": "ESLint rule that flags magic string literals only in suspicious contexts (comparisons, switch cases, action types, analytics/storage/feature-flag/route sinks) and on duplication, instead of reporting every literal.",
   "type": "module",
   "license": "MIT",
@@ -13,44 +13,44 @@
     "magic-strings",
     "magic-numbers"
   ],
-  "main": "index.js",
+  "main": "./dist/index.js",
   "exports": {
     ".": {
-      "types": "./index.d.ts",
-      "default": "./index.js"
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
     },
     "./formatter": {
-      "types": "./formatter.d.ts",
-      "default": "./formatter.js"
+      "types": "./dist/formatter.d.ts",
+      "default": "./dist/formatter.js"
     }
   },
   "files": [
-    "index.js",
-    "rules",
+    "dist",
     "README.md",
-    "index.d.ts",
     "LICENSE",
     "CHANGELOG.md",
     "MIGRATION.md",
-    "formatter.js",
-    "formatter.d.ts",
     "docs/rules"
   ],
   "scripts": {
-    "test": "vitest run",
+    "test": "pnpm build && vitest run",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
-    "benchmark": "node benchmarks/strings.js",
+    "typecheck": "pnpm build && tsc --project tsconfig.json",
+    "benchmark": "pnpm build && node benchmarks/strings.js",
     "release:prepare": "node scripts/prepare-release.js",
-    "benchmark:constants": "node benchmarks/constants.js",
-    "benchmark:memory": "node benchmarks/memory.js"
+    "benchmark:constants": "pnpm build && node benchmarks/constants.js",
+    "benchmark:memory": "pnpm build && node benchmarks/memory.js",
+    "build": "node scripts/build.js",
+    "prepack": "pnpm build"
   },
   "peerDependencies": {
     "eslint": "^10.10.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/node": "^26.4.1",
     "@typescript-eslint/parser": "^8.70.0",
+    "@typescript-eslint/utils": "^8.70.0",
     "@typescript/native": "npm:typescript@^7.0.2",
     "eslint": "10.10.0",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
@@ -61,7 +61,7 @@
     "pnpm": ">=12"
   },
   "packageManager": "pnpm@12.3.4",
-  "types": "./index.d.ts",
+  "types": "./dist/index.d.ts",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/guidomodarelli/eslint-plugin-no-magic.git"

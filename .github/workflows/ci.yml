@@ -25,6 +25,7 @@ jobs:
           node-version: '26.0.0'
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm build
       - run: pnpm lint
       - run: pnpm typecheck
       - name: Test ESLint 10.10.0

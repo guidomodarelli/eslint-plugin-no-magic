@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { it } from "vitest";
 import { Linter } from "eslint";
-import plugin from "../index.js";
+import plugin from "../dist/index.js";
 
 it("should report contracts when the recommended flat config is used", () => {
   const linter = new Linter();

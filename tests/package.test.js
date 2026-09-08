@@ -17,7 +17,7 @@ it("should lint and typecheck a consumer when the published artifact is extracte
   const fixtureRoot = mkdtempSync(join(repositoryRoot, ".package-test-"));
   try {
     // The generated basename contains only a fixed prefix and random alphanumeric suffix.
-    execSync(`pnpm pack --pack-destination ${basename(fixtureRoot)}`, {
+    execSync(`pnpm --ignore-scripts pack --pack-destination ${basename(fixtureRoot)}`, {
       cwd: repositoryRoot,
       stdio: "pipe",
     });
@@ -26,7 +26,10 @@ it("should lint and typecheck a consumer when the published artifact is extracte
     execFileSync("tar", ["-xf", join(fixtureRoot, archive), "-C", fixtureRoot]);
     const packageRoot = join(fixtureRoot, "package");
     const packagedPaths = execFileSync("tar", ["-tf", join(fixtureRoot, archive)], { encoding: "utf8" }).split(/\r?\n/u);
-    const { default: plugin } = await import(pathToFileURL(join(packageRoot, "index.js")).href);
+    const { default: plugin } = await import(pathToFileURL(join(packageRoot, "dist/index.js")).href);
+    assert.ok(packagedPaths.includes("package/dist/index.js"));
+    assert.ok(packagedPaths.includes("package/dist/index.d.ts"));
+    assert.ok(!packagedPaths.some((path) => path.startsWith("package/src/")));
     for (const name of Object.keys(plugin.rules)) {
       assert.ok(packagedPaths.includes(`package/docs/rules/${name}.md`), `Missing packaged documentation for ${name}`);
     }
@@ -34,7 +37,7 @@ it("should lint and typecheck a consumer when the published artifact is extracte
     assert.deepEqual(messages.map((message) => message.messageId), ["noMagicString", "noMagicString"]);
 
     const eslint = new ESLint({ overrideConfigFile: true, overrideConfig: plugin.configs.recommended });
-    const formatter = await eslint.loadFormatter(join(packageRoot, "formatter.js"));
+    const formatter = await eslint.loadFormatter(join(packageRoot, "dist/formatter.js"));
     const results = await eslint.lintText('track("event");');
     assert.ok((await formatter.format(results)).includes("configured call argument"));
 

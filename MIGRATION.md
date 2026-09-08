@@ -63,3 +63,12 @@ Use an explicit `ignoreStrings` allowlist if needed for your project.
 
 Prefer `createConfig({ contracts, duplicates })` to manually duplicating contract
 options. Optional constant rules and the terminal formatter require explicit opt-in.
+
+## TypeScript-authored distribution
+
+The implementation is compiled from `src/` into `dist/`. Package root and
+`/formatter` imports are unchanged; generated `.d.ts` files replace the manually
+maintained declarations. Update direct formatter filesystem paths to
+`node_modules/eslint-plugin-no-magic/dist/formatter.js`. Build before invoking
+tooling directly; package scripts build automatically. No TypeScript runtime is
+required by consumers.

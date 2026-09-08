@@ -1,38 +1,43 @@
 /** @module visible-constants Indexes lexical string constants while preserving declaration preference and temporal visibility. */
 
-/** TypeScript wrappers that preserve a primitive initializer's value. */
-const TRANSPARENT_WRAPPERS = new Set(["TSAsExpression", "TSSatisfiesExpression", "TSTypeAssertion", "TSNonNullExpression"]);
+import { isTransparentExpression } from "../ast.js";
+import type { TSESLint, TSESTree } from "@typescript-eslint/utils";
+
+type Scope = TSESLint.Scope.Scope;
+interface Candidate { name: string; end: number; }
+
 
 /**
  * Builds a file-local lookup; no AST or scope data survives the rule instance.
- * @param {object} sourceCode - ESLint source and completed scope graph.
- * @param {Set<string>} ignoredNames - Names excluded from suggestions, not from shadowing.
- * @returns {Function} Lookup of a visible preceding string constant by node and value.
+ * @param sourceCode - ESLint source and completed scope graph.
+ * @param ignoredNames - Names excluded from suggestions, not from shadowing.
+ * @returns Lookup of a visible preceding string constant by node and value.
  */
-export function createVisibleConstantLookup(sourceCode, ignoredNames) {
-  const scopeIndexes = new Map();
-  const visibleIndexes = new Map();
+export function createVisibleConstantLookup(sourceCode: TSESLint.SourceCode, ignoredNames: Set<string>) {
+  const scopeIndexes = new Map<Scope, Map<string, Candidate[]>>();
+  const visibleIndexes = new Map<Scope, Map<string, Candidate[]>>();
 
   /**
    * Indexes eligible definitions once, preserving scope variable and definition order.
-   * @param {object} scope - Scope whose own variables are indexed.
-   * @returns {Map<string, object[]>} Constant candidates grouped by string value.
+   * @param scope - Scope whose own variables are indexed.
+   * @returns Constant candidates grouped by string value.
    */
-  function indexScope(scope) {
-    if (scopeIndexes.has(scope)) return scopeIndexes.get(scope);
-    const values = new Map();
+  function indexScope(scope: Scope): Map<string, Candidate[]> {
+    if (scopeIndexes.has(scope)) return scopeIndexes.get(scope)!;
+    const values = new Map<string, Candidate[]>();
     for (const variable of scope.variables) {
       if (ignoredNames.has(variable.name)) continue;
       for (const definition of variable.defs) {
+        if (definition.type !== "Variable") continue;
         const declaration = definition.node;
-        if (definition.parent?.kind !== "const" || declaration.id?.type !== "Identifier" || !declaration.init) continue;
-        let initializer = declaration.init;
-        while (TRANSPARENT_WRAPPERS.has(initializer.type)) initializer = initializer.expression;
+        if (definition.type !== "Variable" || definition.parent?.kind !== "const" || declaration.id?.type !== "Identifier" || !declaration.init) continue;
+        let initializer: TSESTree.Node = declaration.init;
+        while (isTransparentExpression(initializer)) initializer = initializer.expression;
         const value = initializer.type === "Literal" ? initializer.value :
           initializer.type === "TemplateLiteral" && initializer.expressions.length === 0 ? initializer.quasis[0]?.value.cooked : null;
         if (typeof value !== "string") continue;
         if (!values.has(value)) values.set(value, []);
-        values.get(value).push({ name: variable.name, end: declaration.range[1] });
+        values.get(value)!.push({ name: variable.name, end: declaration.range[1] });
       }
     }
     scopeIndexes.set(scope, values);
@@ -41,18 +46,18 @@ export function createVisibleConstantLookup(sourceCode, ignoredNames) {
 
   /**
    * Caches visible candidates and compresses candidates that can never be preferred.
-   * @param {object} startingScope - Scope containing the lookup expression.
-   * @param {string} value - Static string contract.
-   * @returns {object[]} Preferred candidates with strictly decreasing declaration ends.
+   * @param startingScope - Scope containing the lookup expression.
+   * @param value - Static string contract.
+   * @returns Preferred candidates with strictly decreasing declaration ends.
    */
-  function visibleCandidates(startingScope, value) {
+  function visibleCandidates(startingScope: Scope, value: string): Candidate[] {
     if (!visibleIndexes.has(startingScope)) visibleIndexes.set(startingScope, new Map());
-    const cache = visibleIndexes.get(startingScope);
-    if (cache.has(value)) return cache.get(value);
-    const candidates = [];
-    const innerScopes = [];
+    const cache = visibleIndexes.get(startingScope)!;
+    if (cache.has(value)) return cache.get(value)!;
+    const candidates: Candidate[] = [];
+    const innerScopes: Scope[] = [];
     let earliestEnd = Infinity;
-    for (let scope = startingScope; scope; scope = scope.upper) {
+    for (let scope: Scope | null = startingScope; scope; scope = scope.upper) {
       // Dynamic object environments cannot prove which outer identifier will resolve.
       if (scope.type === "with") break;
       for (const candidate of indexScope(scope).get(value) ?? []) {
@@ -74,11 +79,11 @@ export function createVisibleConstantLookup(sourceCode, ignoredNames) {
 
   /**
    * Finds the first preferred declaration available at this exact source position.
-   * @param {object} node - Inline string expression.
-   * @param {string} value - Evaluated string value.
-   * @returns {string|null} Visible name or null when no eligible declaration precedes it.
+   * @param node - Inline string expression.
+   * @param value - Evaluated string value.
+   * @returns Visible name or null when no eligible declaration precedes it.
    */
-  return function findVisibleConstant(node, value) {
+  return function findVisibleConstant(node: TSESTree.Node, value: string): string | null {
     const candidates = visibleCandidates(sourceCode.getScope(node), value);
     let lower = 0;
     let upper = candidates.length;

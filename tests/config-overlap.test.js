@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { it } from "vitest";
 import { Linter } from "eslint";
-import { createConfig } from "../index.js";
+import { createConfig } from "../dist/index.js";
 
 it("should replace complete core options only for matching files", () => {
   const config = [

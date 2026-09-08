@@ -6,7 +6,7 @@ import { performance } from "node:perf_hooks";
 import process from "node:process";
 import { Linter } from "eslint";
 import tsParser from "@typescript-eslint/parser";
-import plugin from "../index.js";
+import plugin from "../dist/index.js";
 
 /** Counts of generated blocks; each contributes three candidate strings. */
 const BLOCK_COUNTS = [100, 1000, 5000];

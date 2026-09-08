@@ -1,5 +1,5 @@
 /** Provides public plugin configuration and rule option contracts. @module eslint-plugin-no-magic */
-import type { ESLint, Linter, Rule } from "eslint";
+import type { Linter } from "eslint";
 
 /** Selects a method name or static callee path and its zero-based argument. */
 export interface SinkDescriptor {
@@ -54,29 +54,3 @@ export interface CreateConfigOptions {
   constantDuplicates?: boolean | (NoDuplicateConstantsOptions & { severity?: Linter.Severity | Linter.StringSeverity });
 }
 
-/** Builds a flat config with synchronized contract definitions and independent policies. */
-export function createConfig(settings?: CreateConfigOptions): Linter.Config[];
-
-/** Exposes the recommended options for the upstream TypeScript number rule. */
-export const recommendedMagicNumberOptions: {
-  ignore: number[];
-  enforceConst: boolean;
-  ignoreEnums: boolean;
-  ignoreNumericLiteralTypes: boolean;
-  ignoreReadonlyClassProperties: boolean;
-  ignoreArrayIndexes: boolean;
-  ignoreDefaultValues: boolean;
-};
-
-/** Exposes the named rule and ready-to-use flat configuration. */
-declare const plugin: ESLint.Plugin & {
-  rules: {
-    "no-magic-contracts": Rule.RuleModule;
-    "no-duplicate-strings": Rule.RuleModule;
-    "prefer-existing-constant": Rule.RuleModule;
-    "no-duplicate-constants": Rule.RuleModule;
-  };
-  configs: { recommended: Linter.Config[] };
-};
-
-export default plugin;

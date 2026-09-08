@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { it } from "vitest";
 import { Linter } from "eslint";
-import plugin from "../index.js";
+import plugin from "../dist/index.js";
 
   it(`should configure contracts and duplicates independently with ESLint ${Linter.version}`, () => {
     const linter = new Linter();

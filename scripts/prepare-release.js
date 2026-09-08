@@ -12,7 +12,7 @@ const root = fileURLToPath(new URL("../", import.meta.url));
 const metadata = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
 validateReleaseMetadata(metadata, readFileSync(join(root, "CHANGELOG.md"), "utf8"));
 
-for (const command of ["pnpm install --frozen-lockfile", "pnpm test", "pnpm typecheck", "pnpm lint"]) {
+for (const command of ["pnpm install --frozen-lockfile", "pnpm build", "pnpm test", "pnpm typecheck", "pnpm lint"]) {
   execSync(command, { cwd: root, stdio: "inherit" });
 }
 const releases = join(root, "releases");

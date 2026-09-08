@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { Linter } from "eslint";
 import parser from "@typescript-eslint/parser";
 import { it } from "vitest";
-import { createConfig } from "../index.js";
+import { createConfig } from "../dist/index.js";
 
 /**
  * Lints JSX and TypeScript with optional duplicate exemptions.

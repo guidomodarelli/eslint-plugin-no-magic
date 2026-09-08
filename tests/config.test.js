@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { it } from "vitest";
 import { Linter } from "eslint";
-import { createConfig } from "../index.js";
+import { createConfig } from "../dist/index.js";
 
 it("should synchronize custom contracts and duplicate suppression", () => {
   const config = createConfig({ contracts: { sinks: ["send"] }, duplicates: { minDuplicates: 2 } });

@@ -8,6 +8,17 @@
  * extracted constants, visible copy) are ignored by default.
  */
 
+import { isTransparentExpression } from "../ast.js";
+import type { TSESTree, TSESLint, JSONSchema } from "@typescript-eslint/utils";
+import type { NoMagicContractsOptions, NoDuplicateStringsOptions, PreferExistingConstantOptions, SinkDescriptor } from "../types.js";
+
+/** Per-rule options are schema-validated by ESLint before visitor creation. */
+type StringRuleOptions = NoMagicContractsOptions & NoDuplicateStringsOptions & PreferExistingConstantOptions;
+type MessageIds = "existingConstant" | "noMagicString" | "duplicateString";
+type Detection = "contracts" | "duplicates" | "reuse";
+type NormalizedOptions = ReturnType<typeof normalizeOptions>;
+type Node = TSESTree.Node;
+
 import { createVisibleConstantLookup } from "./visible-constants.js";
 
 const TYPEOF_RESULT_LITERALS = new Set([
@@ -65,19 +76,39 @@ const SINGLE_CHARACTER_LENGTH = 1;
 /** Maximum literal preview length in diagnostic messages. */
 const DIAGNOSTIC_PREVIEW_LENGTH = 80;
 
-function getParent(node) {
+/**
+ * Returns the AST parent, or null at the root.
+ * @param node - AST node to inspect.
+ * @returns The derived value or context match.
+ */
+function getParent(node: Node): Node | null {
   return node.parent ?? null;
 }
 
-function isNonEmptyStringLiteral(node) {
+/**
+ * Narrows literal nodes to nonempty string values.
+ * @param node - AST node to inspect.
+ * @returns The derived value or context match.
+ */
+function isNonEmptyStringLiteral(node: TSESTree.Literal): node is TSESTree.StringLiteral {
   return typeof node.value === "string" && node.value.length > 0;
 }
 
-function hasStaticTemplateText(node) {
+/**
+ * Checks for nonempty static fragments in a template.
+ * @param node - AST node to inspect.
+ * @returns The derived value or context match.
+ */
+function hasStaticTemplateText(node: TSESTree.TemplateLiteral) {
   return node.quasis.some((quasi) => (quasi.value.cooked?.length ?? 0) > 0);
 }
 
-function getNoSubstitutionTemplateText(node) {
+/**
+ * Reads a template only when it has no runtime interpolation.
+ * @param node - AST node to inspect.
+ * @returns The derived value or context match.
+ */
+function getNoSubstitutionTemplateText(node: TSESTree.TemplateLiteral): string | null {
   if (node.expressions.length > 0 || node.quasis.length !== 1) {
     return null;
   }
@@ -87,10 +118,10 @@ function getNoSubstitutionTemplateText(node) {
 
 /**
  * Resolves a bare or member callee name.
- * @param {object} callee - Called expression.
- * @returns {*} Resolved name or context match.
+ * @param callee - Called expression.
+ * @returns Resolved name or context match.
  */
-function getCalleeName(callee) {
+function getCalleeName(callee: Node): string | null {
   if (callee.type === "Identifier") {
     return callee.name;
   }
@@ -104,11 +135,11 @@ function getCalleeName(callee) {
 
 /**
  * Resolves identifier and computed literal property names consistently.
- * @param {object} key - Property key expression.
- * @param {boolean} computed - Whether bracket notation is used.
- * @returns {string|null} Statically known property name.
+ * @param key - Property key expression.
+ * @param computed - Whether bracket notation is used.
+ * @returns Statically known property name.
  */
-function getStaticPropertyName(key, computed) {
+function getStaticPropertyName(key: Node | undefined, computed: boolean): string | null {
   if (!computed && key?.type === "Identifier") return key.name;
   if (key?.type === "Literal" && typeof key.value === "string") return key.value;
   return null;
@@ -116,15 +147,20 @@ function getStaticPropertyName(key, computed) {
 
 /**
  * Resolves a static object property key.
- * @param {object} property - Object property.
- * @returns {string|null} Known key or null for dynamic keys.
+ * @param property - Object property.
+ * @returns Known key or null for dynamic keys.
  */
-function getPropertyKeyName(property) {
+function getPropertyKeyName(property: TSESTree.Property): string | null {
   return getStaticPropertyName(property.key, property.computed);
 }
 
-function isJsxAttributeValueLiteral(node) {
-  let current = node;
+/**
+ * Detects JSX attribute values without crossing callback bodies.
+ * @param node - AST node to inspect.
+ * @returns The derived value or context match.
+ */
+function isJsxAttributeValueLiteral(node: Node) {
+  let current: Node = node;
 
   while (current) {
     const parent = getParent(current);
@@ -153,10 +189,10 @@ function isJsxAttributeValueLiteral(node) {
 
 /**
  * Recognizes copy rendered directly or through value branches.
- * @param {object} node - String expression.
- * @returns {*} Resolved name or context match.
+ * @param node - String expression.
+ * @returns Resolved name or context match.
  */
-function isVisibleJsxCopyLiteral(node) {
+function isVisibleJsxCopyLiteral(node: Node) {
   const parent = getParent(getContextNode(node));
 
   return (
@@ -165,15 +201,30 @@ function isVisibleJsxCopyLiteral(node) {
   );
 }
 
-function isSvgElementName(nameNode) {
+/**
+ * Recognizes structural SVG tag names.
+ * @param nameNode - AST node to inspect.
+ * @returns The derived value or context match.
+ */
+function isSvgElementName(nameNode: Node | undefined) {
   return nameNode?.type === "JSXIdentifier" && SVG_ELEMENT_NAMES.has(nameNode.name);
 }
 
-function isSvgRootElementName(nameNode) {
+/**
+ * Recognizes an SVG root tag.
+ * @param nameNode - AST node to inspect.
+ * @returns The derived value or context match.
+ */
+function isSvgRootElementName(nameNode: Node | undefined) {
   return nameNode?.type === "JSXIdentifier" && nameNode.name === "svg";
 }
 
-function isFunctionBoundary(node) {
+/**
+ * Identifies function bodies that separate behavior from markup.
+ * @param node - AST node to inspect.
+ * @returns The derived value or context match.
+ */
+function isFunctionBoundary(node: Node) {
   return (
     node.type === "ArrowFunctionExpression" ||
     node.type === "FunctionDeclaration" ||
@@ -181,8 +232,13 @@ function isFunctionBoundary(node) {
   );
 }
 
-function isInsideSvgOpeningElement(node) {
-  let current = node;
+/**
+ * Finds structural SVG opening elements in the parent chain.
+ * @param node - AST node to inspect.
+ * @returns The derived value or context match.
+ */
+function isInsideSvgOpeningElement(node: Node) {
+  let current: Node = node;
 
   while (current) {
     const parent = getParent(current);
@@ -201,8 +257,13 @@ function isInsideSvgOpeningElement(node) {
   return false;
 }
 
-function isSvgMarkupLiteral(node) {
-  let current = node;
+/**
+ * Recognizes SVG markup without treating callbacks as presentation.
+ * @param node - AST node to inspect.
+ * @returns The derived value or context match.
+ */
+function isSvgMarkupLiteral(node: Node) {
+  let current: Node = node;
 
   while (current) {
     const parent = getParent(current);
@@ -234,18 +295,21 @@ function isSvgMarkupLiteral(node) {
 
 /**
  * Recognizes actual directive prologues reported by the parser.
- * @param {object} node - Literal expression.
- * @returns {*} Resolved name or context match.
+ * @param node - Literal expression.
+ * @returns Resolved name or context match.
  */
-function isDirectiveLiteral(node) {
-  return (
-    getParent(node)?.type === "ExpressionStatement" &&
-    getParent(node).expression === node &&
-    typeof getParent(node).directive === "string"
-  );
+function isDirectiveLiteral(node: Node) {
+  const parent = getParent(node);
+  return parent?.type === "ExpressionStatement" && parent.expression === node &&
+    "directive" in parent && typeof parent.directive === "string";
 }
 
-function isImportOrExportSource(node) {
+/**
+ * Identifies module source strings owned by module resolution.
+ * @param node - AST node to inspect.
+ * @returns The derived value or context match.
+ */
+function isImportOrExportSource(node: Node) {
   const parentType = getParent(node)?.type;
 
   return (
@@ -258,11 +322,11 @@ function isImportOrExportSource(node) {
 
 /**
  * Recognizes standardized typeof vocabulary through transparent wrappers.
- * @param {*} node - Runtime expression after wrappers.
- * @param {*} value - Evaluated string value.
- * @returns {*} Whether the comparison uses typeof vocabulary.
+ * @param node - Runtime expression after wrappers.
+ * @param value - Evaluated string value.
+ * @returns Whether the comparison uses typeof vocabulary.
  */
-function isTypeofComparisonLiteral(node, value = node.value) {
+function isTypeofComparisonLiteral(node: Node, value: string) {
   const parent = getParent(node);
 
   if (parent?.type !== "BinaryExpression") {
@@ -279,17 +343,32 @@ function isTypeofComparisonLiteral(node, value = node.value) {
   );
 }
 
-function isTypeOnlyLiteral(node) {
+/**
+ * Recognizes TypeScript literal-type declarations.
+ * @param node - AST node to inspect.
+ * @returns The derived value or context match.
+ */
+function isTypeOnlyLiteral(node: Node) {
   return getParent(node)?.type === "TSLiteralType";
 }
 
-function isEnumMemberInitializer(node) {
+/**
+ * Recognizes explicitly named enum values.
+ * @param node - AST node to inspect.
+ * @returns The derived value or context match.
+ */
+function isEnumMemberInitializer(node: Node) {
   const parent = getParent(node);
 
   return parent?.type === "TSEnumMember" && parent.initializer === node;
 }
 
-function isInOperatorLeftOperand(node) {
+/**
+ * Identifies property-name vocabulary in existence checks.
+ * @param node - AST node to inspect.
+ * @returns The derived value or context match.
+ */
+function isInOperatorLeftOperand(node: Node) {
   const parent = getParent(node);
 
   return (
@@ -299,13 +378,23 @@ function isInOperatorLeftOperand(node) {
   );
 }
 
-function isObjectKey(node) {
+/**
+ * Recognizes noncomputed structural object keys.
+ * @param node - AST node to inspect.
+ * @returns The derived value or context match.
+ */
+function isObjectKey(node: Node) {
   const parent = getParent(node);
 
   return parent?.type === "Property" && parent.key === node && !parent.computed;
 }
 
-function isMemberPropertyName(node) {
+/**
+ * Recognizes structural property-access names.
+ * @param node - AST node to inspect.
+ * @returns The derived value or context match.
+ */
+function isMemberPropertyName(node: Node) {
   const parent = getParent(node);
 
   return parent?.type === "MemberExpression" && parent.property === node;
@@ -313,11 +402,11 @@ function isMemberPropertyName(node) {
 
 /**
  * Checks declaration containers and transparent runtime wrappers.
- * @param {object} parent - Enclosing node.
- * @param {object} current - Child expression.
- * @returns {*} Resolved name or context match.
+ * @param parent - Enclosing node.
+ * @param current - Child expression.
+ * @returns Resolved name or context match.
  */
-function isContainerNode(parent, current) {
+function isContainerNode(parent: Node, current: Node) {
   if (parent.type === "Property" && parent.value === current) {
     return true;
   }
@@ -325,15 +414,21 @@ function isContainerNode(parent, current) {
   return (
     parent.type === "ArrayExpression" ||
     parent.type === "ObjectExpression" ||
-    (TRANSPARENT_EXPRESSION_TYPES.has(parent.type) && parent.expression === current)
+    (isTransparentExpression(parent) && parent.expression === current)
   );
 }
 
-function isExtractedConstantLiteral(node) {
-  let current = node;
+/**
+ * Finds string values already named by const declarations.
+ * @param node - AST node to inspect.
+ * @returns The derived value or context match.
+ */
+function isExtractedConstantLiteral(node: Node) {
+  let current: Node = node;
 
   while (getParent(current)) {
     const parent = getParent(current);
+    if (!parent) return false;
 
     if (parent.type === "ExportNamedDeclaration") {
       current = parent;
@@ -357,7 +452,12 @@ function isExtractedConstantLiteral(node) {
   return false;
 }
 
-function isEqualityComparisonOperand(node) {
+/**
+ * Checks operands of equality and inequality comparisons.
+ * @param node - AST node to inspect.
+ * @returns The derived value or context match.
+ */
+function isEqualityComparisonOperand(node: Node) {
   const parent = getParent(node);
 
   if (parent?.type !== "BinaryExpression" || !EQUALITY_OPERATORS.has(parent.operator)) {
@@ -367,7 +467,12 @@ function isEqualityComparisonOperand(node) {
   return parent.left === node || parent.right === node;
 }
 
-function isSwitchCaseTest(node) {
+/**
+ * Recognizes case labels that determine control flow.
+ * @param node - AST node to inspect.
+ * @returns The derived value or context match.
+ */
+function isSwitchCaseTest(node: Node) {
   const parent = getParent(node);
 
   return parent?.type === "SwitchCase" && parent.test === node;
@@ -375,10 +480,10 @@ function isSwitchCaseTest(node) {
 
 /**
  * Builds a static receiver path, including optional and computed member access.
- * @param {object} node - Callee expression.
- * @returns {string|null} Static path or null for dynamic expressions.
+ * @param node - Callee expression.
+ * @returns Static path or null for dynamic expressions.
  */
-function getCalleePath(node) {
+function getCalleePath(node: Node): string | null {
   if (node.type === "Identifier") return node.name;
   if (node.type === "MemberExpression") {
     const receiver = getCalleePath(node.object);
@@ -390,14 +495,14 @@ function getCalleePath(node) {
 
 /**
  * Checks legacy method-name sinks or precise path/argument descriptors.
- * @param {object} node - Argument after transparent wrappers.
- * @param {Array} sinkCallees - Configured sink names or descriptors.
- * @returns {boolean} Whether the argument is a configured contract.
+ * @param node - Argument after transparent wrappers.
+ * @param sinkCallees - Configured sink names or descriptors.
+ * @returns Whether the argument is a configured contract.
  */
-function isKnownSinkArgument(node, sinkCallees) {
+function isKnownSinkArgument(node: Node, sinkCallees: Array<string | SinkDescriptor>) {
   const parent = getParent(node);
   if (parent?.type !== "CallExpression") return false;
-  const argumentIndex = parent.arguments.indexOf(node);
+  const argumentIndex = parent.arguments.findIndex((argument) => argument === node);
   if (argumentIndex < 0) return false;
   const calleeName = getCalleeName(parent.callee);
   const calleePath = getCalleePath(parent.callee);
@@ -409,12 +514,12 @@ function isKnownSinkArgument(node, sinkCallees) {
 
 /**
  * Recognizes action properties inside dispatcher arguments.
- * @param {*} node - Runtime property value.
- * @param {*} actionTypeCallees - Allowed dispatcher names.
- * @param {*} actionTypeProperty - Property carrying the action contract.
- * @returns {*} Whether this value is an action type.
+ * @param node - Runtime property value.
+ * @param actionTypeCallees - Allowed dispatcher names.
+ * @param actionTypeProperty - Property carrying the action contract.
+ * @returns Whether this value is an action type.
  */
-function isActionTypeProperty(node, actionTypeCallees, actionTypeProperty) {
+function isActionTypeProperty(node: Node, actionTypeCallees: Set<string>, actionTypeProperty: string) {
   const property = getParent(node);
 
   if (property?.type !== "Property" || property.value !== node) {
@@ -436,7 +541,7 @@ function isActionTypeProperty(node, actionTypeCallees, actionTypeProperty) {
 
   if (
     callExpression?.type !== "CallExpression" ||
-    !callExpression.arguments.includes(argument)
+    !callExpression.arguments.some((item) => item === argument)
   ) {
     return false;
   }
@@ -448,10 +553,10 @@ function isActionTypeProperty(node, actionTypeCallees, actionTypeProperty) {
 
 /**
  * Normalizes validated options without mutating caller configuration.
- * @param {*} rawOptions - User rule configuration.
- * @returns {*} Normalized lookup collections and sink descriptors.
+ * @param rawOptions - User rule configuration.
+ * @returns Normalized lookup collections and sink descriptors.
  */
-function normalizeOptions(rawOptions = {}) {
+function normalizeOptions(rawOptions: StringRuleOptions = {}) {
   const sinks = Array.isArray(rawOptions.sinks)
     ? rawOptions.sinks
     : DEFAULT_SINK_CALLEES;
@@ -476,11 +581,11 @@ function normalizeOptions(rawOptions = {}) {
 
 /**
  * Identifies presentation and declaration positions exempt from duplication.
- * @param {*} node - Original literal expression.
- * @param {object} ignoreSyntax - Independently enabled syntax exemptions.
- * @returns {*} Whether the position is exempt.
+ * @param node - Original literal expression.
+ * @param ignoreSyntax - Independently enabled syntax exemptions.
+ * @returns Whether the position is exempt.
  */
-function isAllowlistedPosition(node, ignoreSyntax) {
+function isAllowlistedPosition(node: Node, ignoreSyntax: Required<NonNullable<NoDuplicateStringsOptions["ignoreSyntax"]>>) {
   if (isImportOrExportSource(node) || isTypeOnlyLiteral(node) ||
       isEnumMemberInitializer(node) || isInOperatorLeftOperand(node) ||
       isObjectKey(node) || isMemberPropertyName(node)) return true;
@@ -490,21 +595,17 @@ function isAllowlistedPosition(node, ignoreSyntax) {
   return ignoreSyntax.constDefinitions && isExtractedConstantLiteral(node);
 }
 
-/** Transparent TypeScript wrappers preserve the runtime expression context. */
-const TRANSPARENT_EXPRESSION_TYPES = new Set([
-  "TSAsExpression", "TSSatisfiesExpression", "TSTypeAssertion", "TSNonNullExpression",
-]);
 
 /**
  * Follows transparent wrappers and branches that contribute an expression value.
- * @param {object} node - Original runtime expression.
- * @returns {object} Outermost expression receiving the literal value.
+ * @param node - Original runtime expression.
+ * @returns Outermost expression receiving the literal value.
  */
-function getContextNode(node) {
-  let current = node;
+function getContextNode(node: Node): Node {
+  let current: Node = node;
   while (current.parent) {
     const parent = current.parent;
-    const transparent = TRANSPARENT_EXPRESSION_TYPES.has(parent.type) && parent.expression === current;
+    const transparent = isTransparentExpression(parent) && parent.expression === current;
     const conditionalBranch = parent.type === "ConditionalExpression" &&
       (parent.consequent === current || parent.alternate === current);
     const logicalValue = parent.type === "LogicalExpression" &&
@@ -517,45 +618,36 @@ function getContextNode(node) {
 
 /**
  * Detects runtime contracts through transparent TypeScript wrappers.
- * @param {*} node - Original string expression.
- * @param {*} options - Normalized rule configuration.
- * @returns {*} Whether the expression participates in a behavioral contract.
+ * @param node - Original string expression.
+ * @param options - Normalized rule configuration.
+ * @returns Whether the expression participates in a behavioral contract.
  */
-function isSuspiciousContext(node, options) {
+function isSuspiciousContext(node: Node, options: NormalizedOptions) {
   return getContractReason(node, options) !== null;
 }
 
 /**
  * Explains the specific runtime contract represented by a string.
- * @param {object} node - Original string expression.
- * @param {object} options - Normalized rule options.
- * @returns {string|null} Human-readable reason or null outside a contract.
+ * @param node - Original string expression.
+ * @param options - Normalized rule options.
+ * @returns Human-readable reason or null outside a contract.
  */
-function getContractReason(node, options) {
+function getContractReason(node: Node, options: NormalizedOptions): string | null {
   node = getContextNode(node);
   if (isEqualityComparisonOperand(node)) return "comparison value";
   if (isSwitchCaseTest(node)) return "switch case value";
   if (isActionTypeProperty(node, options.actionTypeCallees, options.actionTypeProperty)) return "action type";
   if (!isKnownSinkArgument(node, options.sinks)) return null;
-  const callee = getCalleeName(node.parent.callee);
-  if (["getItem", "setItem", "removeItem"].includes(callee)) return "storage key";
-  if (["push", "replace", "navigate"].includes(callee)) return "navigation argument";
-  if (["getFlag", "isFeatureEnabled", "isEnabled"].includes(callee)) return "feature flag identifier";
+  const parent = getParent(node);
+  const callee = parent?.type === "CallExpression" ? getCalleeName(parent.callee) : null;
+  if (["getItem", "setItem", "removeItem"].includes(callee ?? "")) return "storage key";
+  if (["push", "replace", "navigate"].includes(callee ?? "")) return "navigation argument";
+  if (["getFlag", "isFeatureEnabled", "isEnabled"].includes(callee ?? "")) return "feature flag identifier";
   return "configured call argument";
 }
 
-/** Defines schema, diagnostics, and per-file string analysis for ESLint. */
-const stringAnalysis = {
-  meta: {
-    type: "suggestion",
-    docs: {
-      description:
-        "Disallow magic string literals in comparisons, switch cases, action types, known behavioral sinks, or when duplicated, while ignoring structural literals",
-    },
-    schema: [
-      {
-        type: "object",
-        properties: {
+/** Shared schema properties are narrowed for each public rule. */
+const RULE_OPTION_PROPERTIES: Record<string, JSONSchema.JSONSchema4> = {
           sinks: {
             type: "array",
             items: {
@@ -588,7 +680,23 @@ const stringAnalysis = {
             type: "array",
             items: { type: "string" },
           },
-        },
+        };
+
+/** Defines schema, diagnostics, and per-file string analysis for ESLint. */
+const stringAnalysis: {
+  meta: TSESLint.RuleMetaData<MessageIds>;
+  create(context: TSESLint.RuleContext<MessageIds, [StringRuleOptions?]>, detection: Detection): TSESLint.RuleListener;
+} = {
+  meta: {
+    type: "suggestion",
+    docs: {
+      description:
+        "Disallow magic string literals in comparisons, switch cases, action types, known behavioral sinks, or when duplicated, while ignoring structural literals",
+    },
+    schema: [
+      {
+        type: "object",
+        properties: RULE_OPTION_PROPERTIES,
         additionalProperties: false,
       },
     ],
@@ -602,9 +710,9 @@ const stringAnalysis = {
   },
   /**
    * Creates per-file visitors and deduplicates diagnostics.
-   * @param {object} context - ESLint rule context.
-   * @param {string} detection - Contracts or duplicates reporting.
-   * @returns {object} AST visitors for string expressions and file completion.
+   * @param context - ESLint rule context.
+   * @param detection - Contracts or duplicates reporting.
+   * @returns AST visitors for string expressions and file completion.
    */
   create(context, detection) {
     const options = normalizeOptions(context.options[0]);
@@ -613,12 +721,18 @@ const stringAnalysis = {
     const findVisibleConstant = detection === "reuse"
       ? createVisibleConstantLookup(context.sourceCode, new Set(context.options[0]?.ignoreConstantNames ?? []))
       : null;
-    const duplicateCandidates = new Map();
-    const reportedNodes = new Set();
+    const duplicateCandidates = new Map<string, Node[]>();
+    const reportedNodes = new Set<Node>();
     const ignoreContracts = detection === "duplicates" && context.options[0]?.ignoreContracts !== false;
     const duplicateContractOptions = normalizeOptions(context.options[0]?.contractOptions);
 
-    function collectDuplicateCandidate(value, node) {
+    /**
+     * Records a string occurrence for file-level duplicate reporting.
+     * @param value - Evaluated static string.
+     * @param node - AST node to inspect.
+     * @returns No value; records the occurrence.
+     */
+    function collectDuplicateCandidate(value: string, node: Node) {
       const existingNodes = duplicateCandidates.get(value);
 
       if (existingNodes) {
@@ -631,11 +745,11 @@ const stringAnalysis = {
 
     /**
      * Reports behavioral contracts and records eligible duplicate occurrences.
-     * @param {object} node - Original literal used for diagnostic locations.
-     * @param {string} value - Evaluated static string value.
-     * @returns {void} Reports immediately or defers duplicate diagnostics.
+     * @param node - Original literal used for diagnostic locations.
+     * @param value - Evaluated static string value.
+     * @returns Reports immediately or defers duplicate diagnostics.
      */
-    function evaluateStringValue(node, value) {
+    function evaluateStringValue(node: Node, value: string) {
       if (!value || options.ignoreStrings.has(value)) return;
       const contextNode = getContextNode(node);
       if (isDirectiveLiteral(node) || isTypeofComparisonLiteral(contextNode, value)) return;
@@ -644,7 +758,7 @@ const stringAnalysis = {
       if (!suspicious && isAllowlistedPosition(node, options.ignoreSyntax)) return;
 
       if (detection === "reuse") {
-        const name = suspicious ? findVisibleConstant(node, value) : null;
+        const name = suspicious ? findVisibleConstant!(node, value) : null;
         if (name) context.report({ node, messageId: "existingConstant", data: { name } });
         return;
       }
@@ -662,6 +776,11 @@ const stringAnalysis = {
     }
 
     return {
+      /**
+       * Evaluates runtime string literals using this rule's policy.
+       * @param node - Literal AST node.
+       * @returns No value; emits or records applicable diagnostics.
+       */
       Literal(node) {
         if (!isNonEmptyStringLiteral(node)) {
           return;
@@ -671,8 +790,8 @@ const stringAnalysis = {
       },
       /**
        * Checks static templates and interpolated behavioral contracts.
-       * @param {object} node - Template expression.
-       * @returns {void} Emits applicable diagnostics.
+       * @param node - Template expression.
+       * @returns Emits applicable diagnostics.
        */
       TemplateLiteral(node) {
         const noSubstitutionText = getNoSubstitutionTemplateText(node);
@@ -692,7 +811,7 @@ const stringAnalysis = {
       },
       /**
        * Reports duplicates once per previously unreported occurrence.
-       * @returns {void} Emits deferred diagnostics.
+       * @returns Emits deferred diagnostics.
        */
       "Program:exit"() {
         if (options.minDuplicates <= 0) {
@@ -720,11 +839,11 @@ const stringAnalysis = {
 
 /**
  * Creates an independently configurable rule using the shared string analysis.
- * @param {"contracts"|"duplicates"|"reuse"} detection - Reporting responsibility.
- * @returns {object} ESLint rule with a focused option schema.
+ * @param detection - Reporting responsibility.
+ * @returns ESLint rule with a focused option schema.
  */
-export function createFocusedStringRule(detection) {
-  const properties = { ...stringAnalysis.meta.schema[0].properties };
+export function createFocusedStringRule(detection: Detection): TSESLint.RuleModule<MessageIds, [StringRuleOptions?]> {
+  const properties: Record<string, JSONSchema.JSONSchema4> = { ...RULE_OPTION_PROPERTIES };
   if (detection !== "duplicates") delete properties.minDuplicates;
   if (detection === "reuse") properties.ignoreConstantNames = {
     type: "array", items: { type: "string" }, uniqueItems: true,
@@ -751,12 +870,12 @@ export function createFocusedStringRule(detection) {
       docs: { description: detection === "reuse" ? "Suggest reusing a visible constant for inline string contracts" : detection === "contracts"
         ? "Disallow unnamed string contracts in runtime logic"
         : "Disallow repeated string values in non-structural positions" },
-      schema: [{ ...stringAnalysis.meta.schema[0], properties }],
+      schema: [{ type: "object", properties, additionalProperties: false }],
     },
     /**
      * Binds shared analysis to this rule's reporting responsibility.
-     * @param {object} context - ESLint rule context.
-     * @returns {object} Per-file AST visitors.
+     * @param context - ESLint rule context.
+     * @returns Per-file AST visitors.
      */
     create(context) {
       return stringAnalysis.create(context, detection);

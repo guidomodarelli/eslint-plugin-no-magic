@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.8.0 - Unreleased
+
+- Migrate plugin implementation and formatter to strict TypeScript source.
+- Build ESM JavaScript and public declarations into ignored dist output.
+- Preserve package imports and validate the compiled tarball and consumer types.
+- Update build, test, benchmark, CI and release workflows for compiled output.
+
 ## 1.7.5 - Unreleased
 
 - Document every rule with examples, options, defaults and conservative boundaries.

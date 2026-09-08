@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { it } from "vitest";
 import { Linter } from "eslint";
-import plugin from "../index.js";
+import plugin from "../dist/index.js";
 
 /** Registers the real plugin with independently configurable rules. */
 const plugins = { "no-magic": plugin };
