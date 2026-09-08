@@ -105,7 +105,9 @@ The combined `no-magic-strings` rule remains available for manual configurations
 and emits at most one diagnostic per node. Do not enable it alongside the two
 independent rules. See [migration notes](MIGRATION.md) and [changes](CHANGELOG.md).
 
-## Combined rule: `no-magic-strings`
+## Deprecated rule: `no-magic-strings`
+
+Deprecated since 0.2.2; removed in 1.0.0. Migrate to the independent rules.
 
 ### Options
 

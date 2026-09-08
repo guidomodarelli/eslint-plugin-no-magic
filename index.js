@@ -36,7 +36,22 @@ const plugin = {
     version: packageMetadata.version,
   },
   rules: {
-    "no-magic-strings": noMagicStrings,
+    "no-magic-strings": {
+      ...noMagicStrings,
+      meta: {
+        ...noMagicStrings.meta,
+        deprecated: {
+          message: "Use no-magic-contracts and no-duplicate-strings instead.",
+          url: "https://github.com/guidomodarelli/eslint-plugin-no-magic/blob/main/MIGRATION.md",
+          deprecatedSince: "0.2.2",
+          availableUntil: "1.0.0",
+          replacedBy: [
+            { rule: { name: "no-magic-contracts" }, plugin: { name: "eslint-plugin-no-magic" } },
+            { rule: { name: "no-duplicate-strings" }, plugin: { name: "eslint-plugin-no-magic" } },
+          ],
+        },
+      },
+    },
     "no-magic-contracts": createFocusedStringRule("contracts"),
     "no-duplicate-strings": createFocusedStringRule("duplicates"),
   },

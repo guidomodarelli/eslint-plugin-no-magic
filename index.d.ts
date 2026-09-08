@@ -7,7 +7,9 @@ export interface SinkDescriptor {
   argumentIndex: number;
 }
 
-/** Configures behavioral string detection and duplicate reporting. */
+/** Configures behavioral string detection and duplicate reporting.
+ * @deprecated Use NoMagicContractsOptions and NoDuplicateStringsOptions instead. Removed in 1.0.0.
+ */
 export interface NoMagicStringsOptions {
   sinks?: Array<string | SinkDescriptor>;
   actionTypeCallees?: string[];
@@ -42,6 +44,7 @@ export const recommendedMagicNumberOptions: {
 /** Exposes the named rule and ready-to-use flat configuration. */
 declare const plugin: ESLint.Plugin & {
   rules: {
+    /** @deprecated Use the independent rules instead. Removed in 1.0.0. */
     "no-magic-strings": Rule.RuleModule;
     "no-magic-contracts": Rule.RuleModule;
     "no-duplicate-strings": Rule.RuleModule;

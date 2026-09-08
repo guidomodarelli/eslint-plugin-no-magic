@@ -1,3 +1,15 @@
+# Deprecation in 0.2.2 and removal in 1.0.0
+
+Version 0.2.2 keeps `no-magic-strings` working but exposes its deprecation through
+ESLint metadata and TypeScript documentation. Version 1.0.0 removes it.
+
+Replace the combined rule with both independent rules. Copy `sinks`,
+`actionTypeCallees`, `actionTypeProperty`, and `ignoreStrings` into the contract
+rule. Copy `minDuplicates` and `ignoreStrings` into the duplicate rule, and pass
+the contract options as `contractOptions`. Use the same severity on both rules
+to preserve the previous severity. Set `ignoreContracts: true` to keep one report
+per contract position. Remove old rule entries, including disable comments.
+
 # Migrating from 0.1.x to 0.2.0
 
 Use Node `^26.0.0` and ESLint

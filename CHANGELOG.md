@@ -1,6 +1,12 @@
 # Changelog
 
-## 0.2.0 — Unreleased
+## 0.2.2 - Unreleased
+
+- Deprecate `no-magic-strings` through ESLint metadata and TypeScript documentation.
+- Keep combined behavior available until its removal in 1.0.0.
+- Identify `no-magic-contracts` and `no-duplicate-strings` as replacements.
+
+## 0.2.0 - Unreleased
 
 - Add independent `no-magic-contracts` and `no-duplicate-strings` rules.
 - Configure the recommended preset with contract errors and duplicate warnings.
