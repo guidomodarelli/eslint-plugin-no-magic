@@ -71,7 +71,7 @@ it("should allow duplicate values explicitly without disabling their contract er
 for (const threshold of [0, 1, 2, 3]) {
   it(`should respect threshold ${threshold} with custom sinks and ignoreStrings`, () => {
     const messages = new Linter().verify('send("keep"); send("keep"); send("skip");', [{ plugins, rules: {
-      "no-magic/no-magic-strings": ["error", { sinks: [], actionTypeCallees: [], minDuplicates: threshold, ignoreStrings: ["skip"] }],
+      "no-magic/no-duplicate-strings": ["error", { contractOptions: { sinks: [], actionTypeCallees: [] }, minDuplicates: threshold, ignoreStrings: ["skip"] }],
     } }]);
     assert.equal(messages.length, threshold === 1 || threshold === 2 ? 2 : 0);
     assert.ok(messages.every((message) => message.messageId === "duplicateString"));

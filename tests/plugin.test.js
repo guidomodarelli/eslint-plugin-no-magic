@@ -25,7 +25,14 @@ it("should reject invalid descriptors when sink options are configured", () => {
   ]) {
     assert.throws(() => linter.verify("", [
       ...plugin.configs.recommended,
-      { rules: { "no-magic/no-magic-strings": ["error", { sinks: [sink] }] } },
-    ]), /no-magic\/no-magic-strings/);
+      { rules: { "no-magic/no-magic-contracts": ["error", { sinks: [sink] }] } },
+    ]), /no-magic\/no-magic-contracts/);
   }
+});
+
+it("should reject removed rule configurations in the major release", () => {
+  assert.equal(Object.hasOwn(plugin.rules, "no-magic-strings"), false);
+  assert.throws(() => new Linter().verify("", [{
+    plugins: { "no-magic": plugin }, rules: { "no-magic/no-magic-strings": "error" },
+  }]), /no-magic-strings/);
 });

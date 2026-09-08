@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.0 - Unreleased
+
+- Remove the deprecated `no-magic-strings` rule and its old module.
+- Remove `NoMagicStringsOptions`; use the independent public option types.
+- Migrate all regression tests and benchmark modes to independent rules.
+- Keep the recommended preset and magic-number defaults.
+
 ## 0.2.2 - Unreleased
 
 - Deprecate `no-magic-strings` through ESLint metadata and TypeScript documentation.

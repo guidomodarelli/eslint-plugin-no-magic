@@ -599,7 +599,7 @@ function getContractReason(node, options) {
 }
 
 /** Defines schema, diagnostics, and per-file string analysis for ESLint. */
-const noMagicStringsRule = {
+const stringAnalysis = {
   meta: {
     type: "suggestion",
     docs: {
@@ -656,12 +656,12 @@ const noMagicStringsRule = {
   /**
    * Creates per-file visitors and deduplicates diagnostics.
    * @param {object} context - ESLint rule context.
-   * @param {string} detection - Combined, contracts, or duplicates reporting.
+   * @param {string} detection - Contracts or duplicates reporting.
    * @returns {object} AST visitors for string expressions and file completion.
    */
-  create(context, detection = "combined") {
+  create(context, detection) {
     const options = normalizeOptions(context.options[0]);
-    const reportContracts = detection !== "duplicates";
+    const reportContracts = detection === "contracts";
     if (detection === "contracts") options.minDuplicates = 0;
     const duplicateCandidates = new Map();
     const reportedNodes = new Set();
@@ -769,7 +769,7 @@ const noMagicStringsRule = {
  * @returns {object} ESLint rule with a focused option schema.
  */
 export function createFocusedStringRule(detection) {
-  const properties = { ...noMagicStringsRule.meta.schema[0].properties };
+  const properties = { ...stringAnalysis.meta.schema[0].properties };
   if (detection === "contracts") delete properties.minDuplicates;
   if (detection === "duplicates") {
     const contractProperties = { ...properties };
@@ -784,11 +784,11 @@ export function createFocusedStringRule(detection) {
   }
   return {
     meta: {
-      ...noMagicStringsRule.meta,
+      ...stringAnalysis.meta,
       docs: { description: detection === "contracts"
         ? "Disallow unnamed string contracts in runtime logic"
         : "Disallow repeated string values in non-structural positions" },
-      schema: [{ ...noMagicStringsRule.meta.schema[0], properties }],
+      schema: [{ ...stringAnalysis.meta.schema[0], properties }],
     },
     /**
      * Binds shared analysis to this rule's reporting responsibility.
@@ -796,9 +796,9 @@ export function createFocusedStringRule(detection) {
      * @returns {object} Per-file AST visitors.
      */
     create(context) {
-      return noMagicStringsRule.create(context, detection);
+      return stringAnalysis.create(context, detection);
     },
   };
 }
 
-export default noMagicStringsRule;
+

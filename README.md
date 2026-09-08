@@ -54,7 +54,8 @@ export default [
     files: ["app/**/*.{ts,tsx}", "src/**/*.{ts,tsx}"],
     plugins: { "no-magic": noMagic },
     rules: {
-      "no-magic/no-magic-strings": "error",
+      "no-magic/no-magic-contracts": "error",
+      "no-magic/no-duplicate-strings": "warn",
     },
   },
 ];
@@ -101,13 +102,10 @@ A value in `contractOptions.ignoreStrings` remains eligible for duplication;
 `ignoreStrings` on the duplicate rule itself excludes it entirely. Disable the
 duplicate rule if only contract detection is wanted.
 
-The combined `no-magic-strings` rule remains available for manual configurations
-and emits at most one diagnostic per node. Do not enable it alongside the two
-independent rules. See [migration notes](MIGRATION.md) and [changes](CHANGELOG.md).
+`no-magic-strings` was deprecated in 0.2.2 and removed in 1.0.0. It is no longer
+registered or shipped. See [migration notes](MIGRATION.md).
 
-## Deprecated rule: `no-magic-strings`
-
-Deprecated since 0.2.2; removed in 1.0.0. Migrate to the independent rules.
+## Contract and duplicate rule options
 
 ### Options
 
@@ -120,11 +118,10 @@ Deprecated since 0.2.2; removed in 1.0.0. Migrate to the independent rules.
 | `ignoreStrings` | `string[]` | `[]` | Exact string values that are always allowed. |
 
 ```js
-"no-magic/no-magic-strings": ["error", {
+"no-magic/no-magic-contracts": ["error", {
   sinks: ["track", "getItem", "setItem", "removeItem",
     { callee: "router.push", argumentIndex: 0 },
     { callee: "router.replace", argumentIndex: 0 }],
-  minDuplicates: 3,
   ignoreStrings: ["latin"],
 }]
 ```
@@ -210,15 +207,15 @@ MIT
 
 ## Typed configuration
 
-The package includes TypeScript declarations and exports `NoMagicStringsOptions`
+The package includes TypeScript declarations and exports `NoMagicContractsOptions`
 and `SinkDescriptor` for typed consumer configuration:
 
 ```ts
-import type { NoMagicStringsOptions } from "eslint-plugin-no-magic";
+import type { NoMagicContractsOptions } from "eslint-plugin-no-magic";
 
 const options = {
   sinks: [{ callee: "router.push", argumentIndex: 0 }],
-} satisfies NoMagicStringsOptions;
+} satisfies NoMagicContractsOptions;
 ```
 
 Contract detection follows ternary value branches and logical fallbacks, including
@@ -243,7 +240,7 @@ packaged consumer test. This follows Microsoft's
 
 ## Performance baseline
 
-`pnpm benchmark` compares parsing alone, the combined rule, and the recommended
+`pnpm benchmark` compares parsing alone and the recommended
 independent rules on 300, 3,000, and 15,000 literals in JavaScript, JSX,
 TypeScript, and expressions with 40 nested conditional branches. Every run asserts diagnostic
 counts. It records the median of five measured runs after two warmups, along

@@ -7,28 +7,24 @@ export interface SinkDescriptor {
   argumentIndex: number;
 }
 
-/** Configures behavioral string detection and duplicate reporting.
- * @deprecated Use NoMagicContractsOptions and NoDuplicateStringsOptions instead. Removed in 1.0.0.
- */
-export interface NoMagicStringsOptions {
+/** Configures runtime string contract detection. */
+export interface NoMagicContractsOptions {
   sinks?: Array<string | SinkDescriptor>;
   actionTypeCallees?: string[];
   actionTypeProperty?: string;
-  /** Zero disables duplication; positive values set the occurrence threshold. */
-  minDuplicates?: number;
   ignoreStrings?: string[];
 }
 
-/** Configures contracts without duplicate thresholds. */
-export type NoMagicContractsOptions = Omit<NoMagicStringsOptions, "minDuplicates">;
-
 /** Configures duplicate detection independently from contract rules. */
-export type NoDuplicateStringsOptions = Pick<NoMagicStringsOptions, "minDuplicates" | "ignoreStrings"> & {
+export interface NoDuplicateStringsOptions {
+  /** Zero disables duplication; positive integers set the occurrence threshold. */
+  minDuplicates?: number;
+  ignoreStrings?: string[];
   /** Omit duplicate reports on contract positions while retaining their count. Defaults to true. */
   ignoreContracts?: boolean;
   /** Match the custom classification used by the contract rule. */
   contractOptions?: NoMagicContractsOptions;
-};
+}
 
 /** Exposes the recommended options for the upstream TypeScript number rule. */
 export const recommendedMagicNumberOptions: {
@@ -44,8 +40,6 @@ export const recommendedMagicNumberOptions: {
 /** Exposes the named rule and ready-to-use flat configuration. */
 declare const plugin: ESLint.Plugin & {
   rules: {
-    /** @deprecated Use the independent rules instead. Removed in 1.0.0. */
-    "no-magic-strings": Rule.RuleModule;
     "no-magic-contracts": Rule.RuleModule;
     "no-duplicate-strings": Rule.RuleModule;
   };

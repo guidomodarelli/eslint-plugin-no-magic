@@ -4,7 +4,7 @@ import { describe, it } from "vitest";
 import { RuleTester } from "eslint";
 import tsParser from "@typescript-eslint/parser";
 
-import rule from "../rules/no-magic-strings.js";
+import plugin from "../index.js";
 
 RuleTester.describe = describe;
 RuleTester.it = it;
@@ -23,7 +23,8 @@ const ruleTester = new RuleTester({
 const noMagicString = { messageId: "noMagicString" };
 const duplicateString = { messageId: "duplicateString" };
 
-ruleTester.run("no-magic-strings", rule, {
+/** Shared input fixtures preserve regression coverage across both public rules. */
+const cases = {
   valid: [
     { code: 'localStorage.setItem(KEY, "Texto libre"); sessionStorage.setItem(KEY, "Texto libre");' },
     { code: 'const node = <>{ready ? "Cargando" : "Cargando"}{other && "Cargando"}</>;', filename: "copy.tsx" },
@@ -288,4 +289,28 @@ ruleTester.run("no-magic-strings", rule, {
       errors: [noMagicString],
     },
   ],
-});
+};
+
+for (const [ruleName, messageId] of [
+  ["no-magic-contracts", "noMagicString"],
+  ["no-duplicate-strings", "duplicateString"],
+]) {
+  const valid = [];
+  const invalid = [];
+  for (const testCase of [...cases.valid, ...cases.invalid]) {
+    const { errors = [], options = [{}], ...input } = testCase;
+    const { minDuplicates, ...contractOptions } = options[0];
+    const ruleOptions = ruleName === "no-magic-contracts" ? contractOptions : {
+      ...(minDuplicates === undefined ? {} : { minDuplicates }),
+      ignoreStrings: contractOptions.ignoreStrings ?? [],
+      contractOptions,
+    };
+    const expectedErrors = errors.filter((error) => error.messageId === messageId);
+    const configured = { ...input, options: [ruleOptions] };
+    if (expectedErrors.length) invalid.push({ ...configured, errors: expectedErrors });
+    else valid.push(configured);
+  }
+  // Removing unrelated options can make previously distinct cases identical.
+  const uniqueValid = [...new Map(valid.map((testCase) => [JSON.stringify(testCase), testCase])).values()];
+  ruleTester.run(ruleName, plugin.rules[ruleName], { valid: uniqueValid, invalid });
+}

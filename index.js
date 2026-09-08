@@ -1,7 +1,7 @@
 /**
  * @fileoverview eslint-plugin-no-magic entrypoint.
  *
- * Ships the `no-magic-strings` rule. Magic numbers are intentionally NOT
+ * Ships independent contract and duplicate string rules. Magic numbers are intentionally NOT
  * re-implemented here: use the upstream `@typescript-eslint/no-magic-numbers`
  * rule directly, configured with `recommendedMagicNumberOptions` for parity
  * with this plugin's defaults.
@@ -9,7 +9,7 @@
 
 import { createRequire } from "node:module";
 
-import noMagicStrings, { createFocusedStringRule } from "./rules/no-magic-strings.js";
+import { createFocusedStringRule } from "./rules/string-analysis.js";
 
 /**
  * Sensible defaults for `@typescript-eslint/no-magic-numbers`. Consumers wire
@@ -36,22 +36,6 @@ const plugin = {
     version: packageMetadata.version,
   },
   rules: {
-    "no-magic-strings": {
-      ...noMagicStrings,
-      meta: {
-        ...noMagicStrings.meta,
-        deprecated: {
-          message: "Use no-magic-contracts and no-duplicate-strings instead.",
-          url: "https://github.com/guidomodarelli/eslint-plugin-no-magic/blob/main/MIGRATION.md",
-          deprecatedSince: "0.2.2",
-          availableUntil: "1.0.0",
-          replacedBy: [
-            { rule: { name: "no-magic-contracts" }, plugin: { name: "eslint-plugin-no-magic" } },
-            { rule: { name: "no-duplicate-strings" }, plugin: { name: "eslint-plugin-no-magic" } },
-          ],
-        },
-      },
-    },
     "no-magic-contracts": createFocusedStringRule("contracts"),
     "no-duplicate-strings": createFocusedStringRule("duplicates"),
   },

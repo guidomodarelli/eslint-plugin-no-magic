@@ -1,4 +1,7 @@
-# Performance baseline
+# Historical performance baseline (0.2.1)
+
+The combined rule was removed in 1.0.0. These historical measurements remain
+for reference; the current benchmark runs parser-only and recommended modes.
 
 Measured locally on 2026-09-07 with Node 26.8.1, ESLint 10.10.0,
 Windows, and a 13th Gen Intel Core i7-1360P. Reproduce with `pnpm benchmark`.

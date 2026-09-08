@@ -15,47 +15,39 @@ per contract position. Remove old rule entries, including disable comments.
 Use Node `^26.0.0` and ESLint
 `^10.10.0`. Repository development requires pnpm 12+.
 
-## Recommended configuration
-
-The recommended preset now enables `no-magic/no-magic-contracts` as an error
-and `no-magic/no-duplicate-strings` as a warning. Their options and severities
-are independent:
+## Configuration for 1.0.0
 
 ```js
+import noMagic from "eslint-plugin-no-magic";
+
+const contractOptions = { sinks: ["track"], ignoreStrings: ["legacy"] };
 export default [
-  ...noMagic.configs.recommended,
   {
+    plugins: { "no-magic": noMagic },
     rules: {
-      "no-magic/no-magic-contracts": ["error", { ignoreStrings: ["legacy"] }],
-      "no-magic/no-duplicate-strings": ["warn", { minDuplicates: 4 }],
+      "no-magic/no-magic-contracts": ["error", contractOptions],
+      "no-magic/no-duplicate-strings": ["error", {
+        minDuplicates: 3,
+        ignoreStrings: contractOptions.ignoreStrings,
+        ignoreContracts: true,
+        contractOptions,
+      }],
     },
   },
 ];
 ```
 
+The former `NoMagicStringsOptions` type is also removed. Use
+`NoMagicContractsOptions` and `NoDuplicateStringsOptions`. The default export,
+recommended preset, and `recommendedMagicNumberOptions` remain available.
+The preset reports contracts as errors and duplicates as warnings.
+
 The duplicate rule accepts `minDuplicates`, `ignoreStrings`, `ignoreContracts`,
-and `contractOptions`. The contract rule accepts the combined rule's options
-except `minDuplicates`. Starting with 0.2.1, `ignoreContracts` defaults to `true` in both manual
-configurations and the recommended preset: contract positions contribute to duplicate counts but
-do not receive a second diagnostic. Set it to `false` to restore overlap or to
-report duplicate contracts after disabling the contract rule. For custom sinks,
-dispatchers, or contract allowlists, pass the same configuration to the duplicate
-rule's `contractOptions`. Classification does not inspect whether another rule
-is enabled. To preserve combined reporting and one diagnostic per node, use only
-`no-magic/no-magic-strings` with manual plugin registration.
-Do not enable the combined rule alongside the recommended preset.
+and `contractOptions`. Contract classification is independent of enabled rules:
+set `ignoreContracts: false` when you want duplicate reports on contract positions.
 
-## Detection changes
-
-- `router.push` and `router.replace` inspect argument 0. Configure another receiver
-  explicitly; `sinks: ["push", "replace"]` restores broad method-name matching.
-- Storage methods inspect only argument 0. String sink entries still inspect all
-  string arguments; use descriptors to select an argument index.
-- Single-character contracts, TypeScript casts, ternary routes, JSX comparisons,
-  and computed static dispatch/property names now report correctly.
-- Duplicate counts include eligible contract occurrences. JSX copy in value
-  branches, directive prologues, and named constants remain exempt.
-- Diagnostic text now names the reason; the combined rule keeps its message IDs.
+Version 1.0.0 does not register a legacy alias or ship the old rule module.
+ESLint rejects configurations that still enable `no-magic/no-magic-strings`.
 
 ## Toolchain
 

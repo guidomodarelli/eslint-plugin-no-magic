@@ -13,10 +13,9 @@ const BLOCK_COUNTS = [100, 1000, 5000];
 /** Warmups reduce first-run effects; measured samples are summarized by median. */
 const WARMUP_RUNS = 2;
 const MEASURED_RUNS = 5;
-/** Compares parser-only cost, legacy analysis, and two independent policies. */
+/** Compares parser-only cost and independent policies. */
 const MODES = [
   { name: "parser-only", config: [{}], diagnosticsPerBlock: 0 },
-  { name: "combined", config: [{ plugins: { "no-magic": plugin }, rules: { "no-magic/no-magic-strings": "error" } }], diagnosticsPerBlock: 3 },
   { name: "recommended", config: plugin.configs.recommended, diagnosticsPerBlock: 3 },
 ];
 
