@@ -114,7 +114,7 @@ it("should preserve declaration preference among many equal values and excluded 
 });
 
 it("should ignore shadowed equal-value candidates while preserving another visible name", () => {
-  const messages = lint('const FIRST = "pending"; const SECOND = "pending"; function read(FIRST) { status === "pending"; }', "prefer-existing-constant");
+  const messages = lint('const FIRST = "pending"; const SECOND = "pending"; const read = (FIRST) => { status === "pending"; };', "prefer-existing-constant");
   assert.equal(messages.length, 1);
   assert.ok(messages[0].message.includes("SECOND"));
 });

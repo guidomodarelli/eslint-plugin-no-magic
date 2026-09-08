@@ -53,6 +53,8 @@ export function createVisibleConstantLookup(sourceCode, ignoredNames) {
     const innerScopes = [];
     let earliestEnd = Infinity;
     for (let scope = startingScope; scope; scope = scope.upper) {
+      // Dynamic object environments cannot prove which outer identifier will resolve.
+      if (scope.type === "with") break;
       for (const candidate of indexScope(scope).get(value) ?? []) {
         // All bindings shadow, including parameters, let, imports, and later consts.
         if (innerScopes.some((inner) => inner.set.has(candidate.name))) continue;
@@ -62,6 +64,9 @@ export function createVisibleConstantLookup(sourceCode, ignoredNames) {
         }
       }
       innerScopes.push(scope);
+      // Hoisted functions can run before outer constants initialize. Keep local
+      // candidates, but do not claim outer values are available at invocation time.
+      if (scope.type === "function" && scope.block.type === "FunctionDeclaration") break;
     }
     cache.set(value, candidates);
     return candidates;

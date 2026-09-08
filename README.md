@@ -431,3 +431,19 @@ CI runs both Node 26.0.0 (the minimum allowed by `engines.node`) and the current
 from the frozen lockfile and runs lint, public type checks and the full test suite,
 including packaged-consumer integration. Locally, the same checks passed on
 Windows with Node 26.0.0 and 26.8.1. Remote CI execution is separate from local validation.
+
+### Reuse boundary guarantees and limits
+
+Reuse suggestions accept direct primitive string initializers (including static
+templates and TypeScript assertions), not destructuring, imports, concatenations,
+or calls. Parameters and destructured bindings still shadow outer names.
+
+Hoisted function declarations can run before outer constants initialize, so reuse
+searches stop after checking their local scope. Function expressions and arrows
+created after a constant remain eligible. Searches also stop at dynamic `with`
+environments. These conservative exclusions may omit safe suggestions; the rule
+does not execute code, resolve imports, or prove arbitrary call ordering.
+
+The benchmark's shadowing fixtures use arrows created after their declarations.
+Historical diagnostic baselines predate this boundary audit; capture a new
+`--baseline` before using `--compare` with the revised fixtures.

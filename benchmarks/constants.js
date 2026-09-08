@@ -41,7 +41,7 @@ function fixture(count, scenario) {
     const parameterCount = scenario === "shadowed-hit" ? count - 1 : count;
     const parameters = Array.from({ length: parameterCount }, (_, index) =>
       `${scenario === "shadowed-hit" ? "SHARED" : "VALUE"}_${index}`).join(",");
-    return `${declarations}\nfunction lookup(${parameters}) { ${expressions} }`;
+    return `${declarations}\nconst lookup = (${parameters}) => { ${expressions} };`;
   }
   return scenario === "nested" ? `${declarations}\n${"{ let local;".repeat(SCOPE_DEPTH)}\n${expressions}\n${"}".repeat(SCOPE_DEPTH)}`
     : `${declarations}\n${expressions}`;

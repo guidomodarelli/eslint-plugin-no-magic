@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.3 - Unreleased
+
+- Audit destructuring, imports, expressions and closure visibility for reuse suggestions.
+- Stop outer searches across hoisted function declarations and dynamic with scopes.
+- Keep safe local and expression-closure candidates covered by regressions.
+
 ## 1.7.2 - Unreleased
 
 - Test minimum Node 26.0.0 and current Node 26.x on both CI operating systems.
