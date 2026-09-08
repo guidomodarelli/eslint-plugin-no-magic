@@ -26,6 +26,18 @@ export interface NoDuplicateStringsOptions {
   contractOptions?: NoMagicContractsOptions;
 }
 
+/** Defines shared contracts and independently configurable policies. */
+export interface CreateConfigOptions {
+  contracts?: NoMagicContractsOptions;
+  duplicates?: Omit<NoDuplicateStringsOptions, "contractOptions">;
+  contractSeverity?: Linter.Severity | Linter.StringSeverity;
+  duplicateSeverity?: Linter.Severity | Linter.StringSeverity;
+  files?: string[];
+}
+
+/** Builds a flat config with synchronized contract definitions and independent policies. */
+export function createConfig(settings?: CreateConfigOptions): Linter.Config[];
+
 /** Exposes the recommended options for the upstream TypeScript number rule. */
 export const recommendedMagicNumberOptions: {
   ignore: number[];

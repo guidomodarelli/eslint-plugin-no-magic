@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.0 - Unreleased
+
+- Add createConfig to synchronize contract definitions, isolate option copies, and configure independent severities.
+
 ## 1.0.0 - Unreleased
 
 - Remove the deprecated `no-magic-strings` rule and its old module.

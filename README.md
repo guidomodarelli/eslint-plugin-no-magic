@@ -31,6 +31,27 @@ pnpm add --save-dev eslint-plugin-no-magic
 Requires ESLint 10.10+ (flat config) and Node.js 26.x (`^26.0.0`).
 Development uses pnpm 12+ (pinned to 12.3.4) and Vitest 5.
 
+## Shared configuration
+
+```js
+import { createConfig } from "eslint-plugin-no-magic";
+
+export default createConfig({
+  files: ["src/**/*.{js,ts,tsx}"],
+  contracts: { sinks: [{ callee: "client.send", argumentIndex: 1 }] },
+  duplicates: { minDuplicates: 3 },
+  contractSeverity: "error",
+  duplicateSeverity: "warn",
+});
+```
+
+`createConfig` synchronizes contract classification in both rules and copies
+options so callers cannot mutate subsequent configurations. Contract allowlists
+are shared by default; duplicate `ignoreStrings` can override them. Disabling
+contracts automatically enables duplicate reporting on contract positions unless
+`duplicates.ignoreContracts` explicitly overrides it. Configure the parser in
+another flat config entry when using TypeScript or non-JavaScript syntax.
+
 ## Usage
 
 ### Quick start (recommended flat config)
