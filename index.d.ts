@@ -48,6 +48,10 @@ export interface CreateConfigOptions {
   contractSeverity?: Linter.Severity | Linter.StringSeverity;
   duplicateSeverity?: Linter.Severity | Linter.StringSeverity;
   files?: string[];
+  /** Opt-in reuse suggestions inherit contracts; defaults to off, enabled severity defaults to warn. */
+  reuse?: boolean | { severity?: Linter.Severity | Linter.StringSeverity; ignoreConstantNames?: string[] };
+  /** Opt-in definition duplication; defaults to off, enabled severity defaults to warn. */
+  constantDuplicates?: boolean | (NoDuplicateConstantsOptions & { severity?: Linter.Severity | Linter.StringSeverity });
 }
 
 /** Builds a flat config with synchronized contract definitions and independent policies. */

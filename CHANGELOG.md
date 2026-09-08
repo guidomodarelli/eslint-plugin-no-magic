@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.6.0 - Unreleased
+
+- Configure optional constant rules through createConfig with shared contracts.
+- Preserve opt-in defaults, independent severity and exclusion options.
+
 ## 1.5.3 - Unreleased
 
 - Index visible string constants by lexical scope and value per rule instance.

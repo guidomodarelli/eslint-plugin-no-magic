@@ -38,3 +38,34 @@ for (const settings of [null, [], { unknown: true }, { contractSeverity: "fatal"
     assert.throws(() => createConfig(settings), /createConfig:/);
   });
 }
+
+it("should enable optional rules with shared contracts and independent severities", () => {
+  const config = createConfig({
+    contracts: { sinks: ["send"] }, contractSeverity: "off", duplicateSeverity: "off",
+    reuse: { severity: "error" }, constantDuplicates: true,
+  });
+  const messages = new Linter().verify('const FIRST = "event"; const SECOND = "event"; send("event");', config);
+  assert.deepEqual(messages.map((message) => [message.ruleId, message.severity]), [
+    ["no-magic/no-duplicate-constants", 1], ["no-magic/prefer-existing-constant", 2],
+  ]);
+});
+
+it("should keep advisory rules off by default and honor exclusions when enabled", () => {
+  const code = 'const FIRST = "event"; const SECOND = "event"; send("event");';
+  const base = { contractSeverity: "off", duplicateSeverity: "off" };
+  assert.equal(new Linter().verify(code, createConfig(base)).length, 0);
+  assert.equal(new Linter().verify(code, createConfig({ ...base, reuse: false, constantDuplicates: false })).length, 0);
+  assert.equal(new Linter().verify(code, createConfig({ ...base, contracts: { sinks: ["send"] },
+    reuse: { ignoreConstantNames: ["FIRST", "SECOND"] }, constantDuplicates: { ignoreValues: ["event"] },
+  })).length, 0);
+});
+
+it("should clone advisory options and reject invalid helper settings", () => {
+  const reuse = { ignoreConstantNames: ["FIRST"] };
+  const config = createConfig({ contracts: { sinks: ["send"] }, contractSeverity: "off", duplicateSeverity: "off", reuse });
+  reuse.ignoreConstantNames.length = 0;
+  assert.equal(new Linter().verify('const FIRST = "event"; send("event");', config).length, 0);
+  for (const settings of [{ reuse: null }, { reuse: { severity: "fatal" } }, { reuse: { sinks: [] } }, { constantDuplicates: [] }]) {
+    assert.throws(() => createConfig(settings), /createConfig:/);
+  }
+});

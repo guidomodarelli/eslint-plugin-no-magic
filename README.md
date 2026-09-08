@@ -386,3 +386,19 @@ is intentionally changed. Profiling still uses five samples after two warmups.
 candidates. Temporal availability, declaration preference, name exclusions, and
 shadowing remain unchanged. See [before/after results](benchmarks/CONSTANTS-RESULTS.md)
 for measurements and complete diagnostic-equivalence checks.
+
+### Advisory rules through createConfig
+
+```js
+createConfig({
+  contracts: { sinks: ["send"] },
+  reuse: { severity: "warn", ignoreConstantNames: ["LOCAL_VALUE"] },
+  constantDuplicates: { severity: "warn", ignoreValues: [100] },
+});
+```
+
+Both advisory options default to `false`. `true` enables a rule with warning
+severity. An object enables it with options and an optional severity. Reuse
+inherits contract settings, including sinks and ignored strings, without duplicate
+configuration. Its own options are severity and excluded names. Constant-definition
+duplication has independent value and name exclusions. Input options are copied.

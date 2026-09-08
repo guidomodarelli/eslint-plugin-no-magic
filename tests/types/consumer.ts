@@ -39,3 +39,5 @@ void formatter;
 /** Name exclusions are supported by both optional constant rules. */
 export const reuseOptions: PreferExistingConstantOptions = { ignoreConstantNames: ["LOCAL_TIMEOUT"] };
 export const definitionOptions: NoDuplicateConstantsOptions = { ignoreConstantNames: ["LOCAL_TIMEOUT"], ignoreValues: [100] };
+
+export const advisoryConfig: Linter.Config[] = createConfig({ reuse: { severity: "warn", ignoreConstantNames: ["LOCAL"] }, constantDuplicates: true });

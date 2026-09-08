@@ -56,7 +56,7 @@ export function createConfig(settings = {}) {
   if (!settings || typeof settings !== "object" || Array.isArray(settings)) {
     throw new TypeError("createConfig: settings must be an object");
   }
-  const allowedKeys = ["contracts", "duplicates", "contractSeverity", "duplicateSeverity", "files"];
+  const allowedKeys = ["contracts", "duplicates", "contractSeverity", "duplicateSeverity", "files", "reuse", "constantDuplicates"];
   for (const key of Object.keys(settings)) {
     if (!allowedKeys.includes(key)) throw new TypeError(`createConfig: unsupported option ${key}`);
   }
@@ -74,10 +74,34 @@ export function createConfig(settings = {}) {
   }
   const contractOptions = JSON.parse(JSON.stringify(contracts));
   const duplicateOptions = JSON.parse(JSON.stringify(duplicates));
+  /**
+   * Builds an opt-in advisory rule entry while preserving shared contract options.
+   * @param {string} name - Public helper option name.
+   * @param {string} ruleName - Registered rule identifier.
+   * @param {object} inherited - Shared options for this rule.
+   * @returns {object} Rule entry or an empty object when disabled.
+   * @throws {TypeError} When an advisory configuration or severity is invalid.
+   */
+  function advisory(name, ruleName, inherited = {}) {
+    const value = settings[name];
+    if (value === undefined || value === false) return {};
+    if (value !== true && (!value || typeof value !== "object" || Array.isArray(value))) {
+      throw new TypeError(`createConfig: ${name} must be a boolean or options object`);
+    }
+    const { severity = "warn", ...options } = value === true ? {} : value;
+    if (!severities.includes(severity)) throw new TypeError(`createConfig: invalid ${name} severity`);
+    const allowed = name === "reuse" ? ["ignoreConstantNames"] : ["ignoreConstantNames", "ignoreValues"];
+    for (const key of Object.keys(options)) {
+      if (!allowed.includes(key)) throw new TypeError(`createConfig: unsupported ${name} option ${key}`);
+    }
+    return { [ruleName]: [severity, JSON.parse(JSON.stringify({ ...inherited, ...options }))] };
+  }
   return [{
     ...(files === undefined ? {} : { files: [...files] }),
     plugins: { "no-magic": plugin },
     rules: {
+      ...advisory("reuse", "no-magic/prefer-existing-constant", contractOptions),
+      ...advisory("constantDuplicates", "no-magic/no-duplicate-constants"),
       "no-magic/no-magic-contracts": [contractSeverity, contractOptions],
       "no-magic/no-duplicate-strings": [duplicateSeverity, {
         ignoreStrings: [...(contractOptions.ignoreStrings ?? [])],
