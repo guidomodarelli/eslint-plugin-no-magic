@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.5 - Unreleased
+
+- Document every rule with examples, options, defaults and conservative boundaries.
+- Expose documentation URLs through ESLint metadata and include pages in the package.
+
 ## 1.7.4 - Unreleased
 
 - Verify overlapping file configs, severity overrides and advisory inheritance.

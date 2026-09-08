@@ -46,6 +46,12 @@ const plugin = {
   configs: {},
 };
 
+/** Public documentation root shared by all registered rule metadata. */
+const RULE_DOCUMENTATION_BASE_URL = "https://github.com/guidomodarelli/eslint-plugin-no-magic/blob/main/docs/rules";
+for (const [name, rule] of Object.entries(plugin.rules)) {
+  rule.meta.docs.url = `${RULE_DOCUMENTATION_BASE_URL}/${name}.md`;
+}
+
 /**
  * Builds independent rule configuration from one shared contract definition.
  * @param {object} settings - Contracts, duplicate policy, severities, and optional file globs.

@@ -32,6 +32,16 @@ pnpm add --save-dev eslint-plugin-no-magic
 Requires ESLint 10.10+ (flat config) and Node.js 26.x (`^26.0.0`).
 Development uses pnpm 12+ (pinned to 12.3.4) and Vitest 5.
 
+## Rule reference
+
+- [no-magic-contracts](docs/rules/no-magic-contracts.md): unnamed runtime contracts.
+- [no-duplicate-strings](docs/rules/no-duplicate-strings.md): repeated static strings.
+- [prefer-existing-constant](docs/rules/prefer-existing-constant.md): visible string reuse.
+- [no-duplicate-constants](docs/rules/no-duplicate-constants.md): repeated primitive definitions.
+
+Each rule includes examples, defaults, options, and known limitations. ESLint
+`meta.docs.url` points to its page, and the package includes all four documents.
+
 ## Shared configuration
 
 ```js

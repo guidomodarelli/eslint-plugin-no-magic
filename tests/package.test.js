@@ -25,7 +25,11 @@ it("should lint and typecheck a consumer when the published artifact is extracte
     assert.ok(archive, "Packing must produce a tarball");
     execFileSync("tar", ["-xf", join(fixtureRoot, archive), "-C", fixtureRoot]);
     const packageRoot = join(fixtureRoot, "package");
+    const packagedPaths = execFileSync("tar", ["-tf", join(fixtureRoot, archive)], { encoding: "utf8" }).split(/\r?\n/u);
     const { default: plugin } = await import(pathToFileURL(join(packageRoot, "index.js")).href);
+    for (const name of Object.keys(plugin.rules)) {
+      assert.ok(packagedPaths.includes(`package/docs/rules/${name}.md`), `Missing packaged documentation for ${name}`);
+    }
     const messages = new Linter().verify('router.push(ready ? "/checkout" : "/login");', plugin.configs.recommended);
     assert.deepEqual(messages.map((message) => message.messageId), ["noMagicString", "noMagicString"]);
 

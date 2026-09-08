@@ -1,6 +1,6 @@
 {
   "name": "eslint-plugin-no-magic",
-  "version": "1.7.4",
+  "version": "1.7.5",
   "description": "ESLint rule that flags magic string literals only in suspicious contexts (comparisons, switch cases, action types, analytics/storage/feature-flag/route sinks) and on duplication, instead of reporting every literal.",
   "type": "module",
   "license": "MIT",
@@ -33,7 +33,8 @@
     "CHANGELOG.md",
     "MIGRATION.md",
     "formatter.js",
-    "formatter.d.ts"
+    "formatter.d.ts",
+    "docs/rules"
   ],
   "scripts": {
     "test": "vitest run",
