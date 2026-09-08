@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.1 - Unreleased
+
+- Measure retained heap and sampled peaks across unique files in isolated processes.
+- Record parser-only and optional-rule baselines with diagnostic count checks.
+
 ## 1.7.0 - Unreleased
 
 - Add safe terminal hyperlinks with file and editor position targets.

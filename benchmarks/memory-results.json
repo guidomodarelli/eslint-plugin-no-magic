@@ -1,0 +1,143 @@
+{
+  "measuredAt": "2026-09-08T03:20:13.271Z",
+  "node": "v26.8.1",
+  "eslint": "10.10.0",
+  "os": "win32",
+  "cpu": "13th Gen Intel(R) Core(TM) i7-1360P",
+  "scopesPerFile": 8,
+  "valuesPerScope": 25,
+  "warmupFiles": 5,
+  "batches": [
+    25,
+    25,
+    50
+  ],
+  "results": [
+    {
+      "mode": "parser-only",
+      "baseline": {
+        "rss": 110333952,
+        "heapTotal": 49696768,
+        "heapUsed": 15957256,
+        "external": 2680295,
+        "arrayBuffers": 143741
+      },
+      "measurements": [
+        {
+          "files": 25,
+          "rss": 181755904,
+          "heapTotal": 84037632,
+          "heapUsed": 16247896,
+          "external": 2680295,
+          "arrayBuffers": 143741,
+          "retainedHeapDelta": 290640,
+          "sampledPeakHeap": 82887896
+        },
+        {
+          "files": 50,
+          "rss": 190627840,
+          "heapTotal": 84299776,
+          "heapUsed": 16326392,
+          "external": 2680295,
+          "arrayBuffers": 143741,
+          "retainedHeapDelta": 369136,
+          "sampledPeakHeap": 94935648
+        },
+        {
+          "files": 100,
+          "rss": 224112640,
+          "heapTotal": 84824064,
+          "heapUsed": 16439312,
+          "external": 2680295,
+          "arrayBuffers": 143741,
+          "retainedHeapDelta": 482056,
+          "sampledPeakHeap": 124845160
+        }
+      ]
+    },
+    {
+      "mode": "reuse",
+      "baseline": {
+        "rss": 110833664,
+        "heapTotal": 51007488,
+        "heapUsed": 16414952,
+        "external": 2680295,
+        "arrayBuffers": 143741
+      },
+      "measurements": [
+        {
+          "files": 25,
+          "rss": 200826880,
+          "heapTotal": 84824064,
+          "heapUsed": 16701928,
+          "external": 2680295,
+          "arrayBuffers": 143741,
+          "retainedHeapDelta": 286976,
+          "sampledPeakHeap": 113621000
+        },
+        {
+          "files": 50,
+          "rss": 200773632,
+          "heapTotal": 84824064,
+          "heapUsed": 16796952,
+          "external": 2680295,
+          "arrayBuffers": 143741,
+          "retainedHeapDelta": 382000,
+          "sampledPeakHeap": 113621000
+        },
+        {
+          "files": 100,
+          "rss": 221372416,
+          "heapTotal": 86134784,
+          "heapUsed": 16890744,
+          "external": 2680295,
+          "arrayBuffers": 143741,
+          "retainedHeapDelta": 475792,
+          "sampledPeakHeap": 129366824
+        }
+      ]
+    },
+    {
+      "mode": "both",
+      "baseline": {
+        "rss": 109625344,
+        "heapTotal": 51793920,
+        "heapUsed": 16506112,
+        "external": 2680295,
+        "arrayBuffers": 143741
+      },
+      "measurements": [
+        {
+          "files": 25,
+          "rss": 205828096,
+          "heapTotal": 82989056,
+          "heapUsed": 16682712,
+          "external": 2680295,
+          "arrayBuffers": 143741,
+          "retainedHeapDelta": 176600,
+          "sampledPeakHeap": 111674624
+        },
+        {
+          "files": 50,
+          "rss": 205529088,
+          "heapTotal": 85872640,
+          "heapUsed": 16768912,
+          "external": 2680295,
+          "arrayBuffers": 143741,
+          "retainedHeapDelta": 262800,
+          "sampledPeakHeap": 111674624
+        },
+        {
+          "files": 100,
+          "rss": 219308032,
+          "heapTotal": 85610496,
+          "heapUsed": 16825448,
+          "external": 2680295,
+          "arrayBuffers": 143741,
+          "retainedHeapDelta": 319336,
+          "sampledPeakHeap": 116058488
+        }
+      ]
+    }
+  ]
+}

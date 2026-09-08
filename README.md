@@ -415,3 +415,11 @@ identified as Windows Terminal, VS Code, iTerm, WezTerm or Ghostty, and disabled
 in CI. Unknown terminals and non-file results keep plain locations. Use
 `hyperlinks: false` for logs regardless of terminal capabilities. Color and links
 are independent settings.
+
+### Memory profiling
+
+`pnpm benchmark:memory` runs parser-only, reuse, and both advisory rules in separate
+Node processes. It verifies diagnostics on 100 files with multiple scopes and
+records heap after explicit GC, retained delta, sampled peak heap, and RSS.
+[The memory report](benchmarks/MEMORY-RESULTS.md) explains the methodology and limits.
+This is a diagnostic benchmark, not a leak assertion or CI memory threshold.
