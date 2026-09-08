@@ -319,3 +319,16 @@ be overridden explicitly. Unicode decoration is enabled by default; the ASCII
 mode disables it. Control characters are escaped to prevent terminal injection.
 Terminal-specific ambiguous Unicode widths may differ. Editors and JSON formatters
 still receive ordinary text messages with standard ESLint source locations.
+
+## Prepare a local release
+
+```bash
+pnpm release:prepare
+```
+
+This checks the package version against the first changelog entry, enforces ASCII
+release notes, runs frozen installation/tests/types/lint, then verifies the tarball
+contains its declared exports and no unexpected private files. Output goes to
+`releases/<version>-<sha256>/` so previous artifacts are preserved. The directory
+is ignored by Git. It does not bump versions, change release dates, create commits
+or tags, or publish. Set the intended version and write its notes before running.
