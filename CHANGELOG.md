@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.2 - Unreleased
+
+- Add equal-value and shadowed-candidate benchmark scenarios.
+- Capture complete diagnostic hashes for before/after regression comparison.
+
 ## 1.5.1 - Unreleased
 
 - Add checked benchmarks for optional constant rules, including misses and nested scopes.

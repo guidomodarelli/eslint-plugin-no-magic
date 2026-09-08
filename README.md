@@ -371,3 +371,13 @@ runs follow two warmups, with exact diagnostic assertions and ESLint per-rule
 statistics. Results are written to `benchmarks/constants-results.json`.
 See [the measured baseline](benchmarks/CONSTANTS-RESULTS.md). This command measures
 existing behavior; it neither optimizes the rules nor sets a timing gate.
+
+### Reuse regression profiles
+
+The constant benchmark also covers many constants with the same value,
+matching candidates shadowed by parameters, and fully shadowed misses.
+`pnpm benchmark:constants --baseline` records `constants-before.json`;
+`pnpm benchmark:constants --compare` records current results and requires identical
+complete diagnostics (including messages, locations, severity, and order) across
+all recorded scenarios. Capture a new baseline only when the reference behavior
+is intentionally changed. Profiling still uses five samples after two warmups.

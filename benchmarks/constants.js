@@ -1,7 +1,8 @@
 /** @file Profiles optional constant rules using real ESLint timing and checked diagnostics. */
 import assert from "node:assert/strict";
 import console from "node:console";
-import { writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { readFileSync, writeFileSync } from "node:fs";
 import { cpus, platform } from "node:os";
 import { performance } from "node:perf_hooks";
 import process from "node:process";
@@ -33,8 +34,15 @@ const MODES = [
 function fixture(count, scenario) {
   const declarations = Array.from({ length: count }, (_, index) =>
     `const VALUE_${index} = "value_${index}"; const SHARED_${index} = "shared";`).join("\n");
+  const sharedValue = scenario === "same-value" || scenario === "shadowed-hit";
   const expressions = Array.from({ length: count }, (_, index) =>
-    `status === "${scenario === "wide-miss" ? "missing" : "value"}_${index}";`).join("\n");
+    `status === "${sharedValue ? "shared" : `${scenario === "wide-miss" ? "missing" : "value"}_${index}`}";`).join("\n");
+  if (scenario === "shadowed-hit" || scenario === "shadowed-miss") {
+    const parameterCount = scenario === "shadowed-hit" ? count - 1 : count;
+    const parameters = Array.from({ length: parameterCount }, (_, index) =>
+      `${scenario === "shadowed-hit" ? "SHARED" : "VALUE"}_${index}`).join(",");
+    return `${declarations}\nfunction lookup(${parameters}) { ${expressions} }`;
+  }
   return scenario === "nested" ? `${declarations}\n${"{ let local;".repeat(SCOPE_DEPTH)}\n${expressions}\n${"}".repeat(SCOPE_DEPTH)}`
     : `${declarations}\n${expressions}`;
 }
@@ -53,11 +61,12 @@ const report = {
   os: platform(), cpu: cpus()[0]?.model, warmups: WARMUPS, samples: SAMPLES, scopeDepth: SCOPE_DEPTH,
   measurements: [],
 };
-for (const scenario of ["wide-hit", "wide-miss", "nested"]) {
+for (const scenario of ["wide-hit", "wide-miss", "nested", "same-value", "shadowed-hit", "shadowed-miss"]) {
   for (const candidates of CANDIDATE_COUNTS) {
     const code = fixture(candidates, scenario);
     for (const mode of MODES) {
       const elapsedSamples = [];
+      let diagnosticsHash;
       const parseSamples = [];
       const reuseSamples = [];
       const duplicateSamples = [];
@@ -68,12 +77,15 @@ for (const scenario of ["wide-hit", "wide-miss", "nested"]) {
         const started = performance.now();
         const [result] = await eslint.lintText(code, { filePath: "benchmark.js" });
         const elapsed = performance.now() - started;
-        const expectedReuse = mode.rules[REUSE_RULE] && scenario !== "wide-miss" ? candidates : 0;
+        const expectedReuse = mode.rules[REUSE_RULE] && !["wide-miss", "shadowed-miss"].includes(scenario) ? candidates : 0;
         const expectedDuplicates = mode.rules[DUPLICATE_RULE] ? candidates - 1 : 0;
         assert.equal(result.fatalErrorCount, 0);
         assert.equal(result.messages.filter((message) => message.ruleId === REUSE_RULE).length, expectedReuse);
         assert.equal(result.messages.filter((message) => message.ruleId === DUPLICATE_RULE).length, expectedDuplicates);
         assert.equal(result.messages.length, expectedReuse + expectedDuplicates);
+        const currentHash = createHash("sha256").update(JSON.stringify(result.messages)).digest("hex");
+        if (diagnosticsHash) assert.equal(currentHash, diagnosticsHash, "Diagnostics must be deterministic across samples");
+        diagnosticsHash = currentHash;
         const timing = result.stats.times.passes[0];
         if (run >= WARMUPS) {
           elapsedSamples.push(elapsed);
@@ -82,11 +94,22 @@ for (const scenario of ["wide-hit", "wide-miss", "nested"]) {
           duplicateSamples.push(timing.rules?.[DUPLICATE_RULE]?.total ?? 0);
         }
       }
-      const measurement = { scenario, candidates, declarations: candidates * 2, lookups: candidates, mode: mode.name,
+      const measurement = { scenario, candidates, declarations: candidates * 2, lookups: candidates, mode: mode.name, diagnosticsHash,
         medianMs: median(elapsedSamples), parseMs: median(parseSamples), reuseMs: median(reuseSamples), duplicatesMs: median(duplicateSamples) };
       report.measurements.push(measurement);
       console.log(JSON.stringify(measurement));
     }
   }
 }
-writeFileSync(new URL("./constants-results.json", import.meta.url), JSON.stringify(report, null, 2) + "\n");
+if (process.argv.includes("--compare")) {
+  const baseline = JSON.parse(readFileSync(new URL("./constants-before.json", import.meta.url), "utf8"));
+  assert.equal(report.measurements.length, baseline.measurements.length);
+  for (const measurement of report.measurements) {
+    const previous = baseline.measurements.find((item) => item.scenario === measurement.scenario &&
+      item.candidates === measurement.candidates && item.mode === measurement.mode);
+    assert.ok(previous, "Every scenario must have a baseline");
+    assert.equal(measurement.diagnosticsHash, previous.diagnosticsHash, "Optimization must preserve complete diagnostics");
+  }
+}
+const destination = process.argv.includes("--baseline") ? "./constants-before.json" : "./constants-results.json";
+writeFileSync(new URL(destination, import.meta.url), JSON.stringify(report, null, 2) + "\n");
