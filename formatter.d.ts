@@ -5,6 +5,10 @@ import type { ESLint } from "eslint";
 export interface FormatterOptions {
   color?: boolean;
   unicode?: boolean;
+  /** Auto-detects supported interactive terminals; disabled in CI by default. */
+  hyperlinks?: boolean;
+  /** File URLs are the default; vscode URLs open an exact editor position. */
+  linkTarget?: "file" | "vscode";
 }
 
 /** Creates a formatter; color defaults to terminal detection with NO_COLOR support. */

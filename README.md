@@ -402,3 +402,16 @@ severity. An object enables it with options and an optional severity. Reuse
 inherits contract settings, including sinks and ignored strings, without duplicate
 configuration. Its own options are severity and excluded names. Constant-definition
 duplication has independent value and name exclusions. Input options are copied.
+
+### Terminal navigation
+
+`createFormatter({ hyperlinks: true, linkTarget: "vscode" })` emits OSC 8 links
+that open an exact editor position. The default `linkTarget: "file"` uses file
+URLs with location fragments; whether the opener honors the line depends on the
+application. Labels include `file:line:column`. URLs escape spaces and controls.
+
+Without an explicit option, links are enabled only for interactive terminals
+identified as Windows Terminal, VS Code, iTerm, WezTerm or Ghostty, and disabled
+in CI. Unknown terminals and non-file results keep plain locations. Use
+`hyperlinks: false` for logs regardless of terminal capabilities. Color and links
+are independent settings.

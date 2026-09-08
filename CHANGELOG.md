@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.0 - Unreleased
+
+- Add safe terminal hyperlinks with file and editor position targets.
+- Preserve plain CI output and explicit hyperlink opt-out.
+
 ## 1.6.0 - Unreleased
 
 - Configure optional constant rules through createConfig with shared contracts.

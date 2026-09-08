@@ -4,6 +4,7 @@ import { it } from "vitest";
 import { ESLint } from "eslint";
 import { stripVTControlCharacters } from "node:util";
 import process from "node:process";
+import { resolve } from "node:path";
 import { createFormatter } from "../formatter.js";
 import { createConfig } from "../index.js";
 
@@ -76,4 +77,37 @@ it("should align source spans after tabs and emoji", () => {
   const lines = output.split("\n");
   assert.ok(lines.some((line) => line.includes('1 |   "😀"; bad')));
   assert.ok(lines.some((line) => line.endsWith("^^^")));
+});
+
+it("should link an absolute file position with escaped URL characters", () => {
+  const results = [{ filePath: resolve("space # file.js"), messages: [{ severity: 2, line: 3, column: 7, message: "Example" }] }];
+  const output = createFormatter({ color: false, hyperlinks: true })(results);
+  assert.ok(output.includes("\u001b]8;;file:"));
+  assert.ok(output.includes("space%20%23%20file.js#L3:7"));
+  assert.ok(stripVTControlCharacters(output).includes("space # file.js:3:7"));
+  const plain = createFormatter({ color: false, hyperlinks: false })(results);
+  assert.ok(!plain.includes("\u001b"));
+});
+
+it("should support an explicit editor link without allowing terminal injection", () => {
+  const results = [{ filePath: resolve("unsafe\u001b]8;;file.js"), messages: [{ severity: 2, line: 2, column: 4, message: "Example" }] }];
+  const output = createFormatter({ color: false, hyperlinks: true, linkTarget: "vscode" })(results);
+  assert.ok(output.includes("\u001b]8;;vscode://file"));
+  assert.ok(output.includes("%1B"));
+  assert.ok(stripVTControlCharacters(output).includes("\\u001b"));
+  assert.throws(() => createFormatter({ linkTarget: "javascript" }), /linkTarget/);
+});
+
+it("should avoid links in CI by default and for non-file results", () => {
+  const previous = process.env.CI;
+  try {
+    process.env.CI = "true";
+    const results = [{ filePath: resolve("example.js"), messages: [{ severity: 2, message: "Example" }] }];
+    assert.ok(!createFormatter({ color: false })(results).includes("\u001b"));
+    results[0].filePath = "<text>";
+    assert.ok(!createFormatter({ color: false, hyperlinks: true })(results).includes("\u001b"));
+  } finally {
+    if (previous === undefined) delete process.env.CI;
+    else process.env.CI = previous;
+  }
 });

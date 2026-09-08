@@ -1,5 +1,7 @@
 /** @module formatter Renders ESLint diagnostics as terminal code frames without changing rule messages. */
 import process from "node:process";
+import { isAbsolute } from "node:path";
+import { pathToFileURL } from "node:url";
 
 /** Semantic ANSI styles used only when color output is enabled. */
 const COLORS = { error: "\u001b[31;1m", warning: "\u001b[33;1m", detail: "\u001b[36m", reset: "\u001b[0m" };
@@ -39,10 +41,11 @@ function columns(value) {
 
 /**
  * Creates a formatter with explicit color and Unicode controls for terminals or CI.
- * @param {object} options - Optional color and unicode toggles.
+ * @param {object} options - Color, Unicode, hyperlink detection, and file/editor link target.
  * @returns {Function} Standard ESLint formatter accepting lint results.
  */
-export function createFormatter({ color, unicode = true } = {}) {
+export function createFormatter({ color, unicode = true, hyperlinks, linkTarget = "file" } = {}) {
+  if (!["file", "vscode"].includes(linkTarget)) throw new TypeError("formatter: linkTarget must be file or vscode");
   /**
    * Formats file diagnostics, source spans, and a compact severity summary.
    * @param {object[]} results - ESLint lint results, optionally including source text.
@@ -51,6 +54,8 @@ export function createFormatter({ color, unicode = true } = {}) {
   return function format(results) {
     const colored = color ?? (process.env.NO_COLOR === undefined &&
       (process.env.FORCE_COLOR !== undefined ? process.env.FORCE_COLOR !== "0" : Boolean(process.stdout.isTTY)));
+    const linked = hyperlinks ?? (Boolean(process.stdout.isTTY) && !process.env.CI &&
+      (Boolean(process.env.WT_SESSION) || ["vscode", "iTerm.app", "WezTerm", "ghostty"].includes(process.env.TERM_PROGRAM)));
     const glyphs = unicode ? { top: "╭─", bar: "│", bottom: "╰─", error: "✖", warning: "▲", caret: "━" }
       : { top: "+-", bar: "|", bottom: "+-", error: "x", warning: "!", caret: "^" };
     const lines = [];
@@ -71,7 +76,17 @@ export function createFormatter({ color, unicode = true } = {}) {
         const isError = message.fatal || message.severity === 2;
         if (isError) errors++; else warnings++;
         const tone = isError ? "error" : "warning";
-        const location = `${message.line ?? 1}:${message.column ?? 1}`;
+        const line = Number.isInteger(message.line) && message.line > 0 ? message.line : 1;
+        const column = Number.isInteger(message.column) && message.column > 0 ? message.column : 1;
+        let location = `${line}:${column}`;
+        if (linked && typeof result.filePath === "string" && isAbsolute(result.filePath)) {
+          const fileUrl = pathToFileURL(result.filePath);
+          const target = linkTarget === "vscode"
+            ? `vscode://file${fileUrl.pathname}:${line}:${column}`
+            : `${fileUrl.href}#L${line}:${column}`;
+          const label = printable(`${result.filePath}:${line}:${column}`);
+          location = `\u001b]8;;${target}\u001b\\${label}\u001b]8;;\u001b\\`;
+        }
         lines.push(`${glyphs.bar} ${paint(`${isError ? glyphs.error : glyphs.warning} ${isError ? "ERROR" : "WARNING"}`, tone)} ${location}  ${printable(message.ruleId ?? "parse-error")}`);
         lines.push(`${glyphs.bar} ${printable(message.message)}`);
         const source = sourceLines[(message.line ?? 1) - 1];
