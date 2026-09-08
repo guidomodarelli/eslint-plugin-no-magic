@@ -543,6 +543,36 @@ function getContractReason(node, options) {
   return "configured call argument";
 }
 
+/**
+ * Finds a preceding, unshadowed string constant in the current lexical scope chain.
+ * @param {object} node - Inline contract expression.
+ * @param {string} value - Static string value to reuse.
+ * @param {object} sourceCode - ESLint scope information.
+ * @returns {string|null} Visible constant identifier, if statically known.
+ */
+function findVisibleConstant(node, value, sourceCode) {
+  const shadowed = new Set();
+  let scope = sourceCode.getScope(node);
+  while (scope) {
+    for (const variable of scope.variables) {
+      if (shadowed.has(variable.name)) continue;
+      shadowed.add(variable.name);
+      for (const definition of variable.defs) {
+        const declaration = definition.node;
+        if (definition.parent?.kind !== "const" || declaration.id?.type !== "Identifier" ||
+          !declaration.init || declaration.range[1] > node.range[0]) continue;
+        let initializer = declaration.init;
+        while (TRANSPARENT_EXPRESSION_TYPES.has(initializer.type)) initializer = initializer.expression;
+        const constantValue = initializer.type === "Literal" ? initializer.value :
+          initializer.type === "TemplateLiteral" ? getNoSubstitutionTemplateText(initializer) : null;
+        if (constantValue === value) return variable.name;
+      }
+    }
+    scope = scope.upper;
+  }
+  return null;
+}
+
 /** Defines schema, diagnostics, and per-file string analysis for ESLint. */
 const stringAnalysis = {
   meta: {
@@ -592,6 +622,7 @@ const stringAnalysis = {
       },
     ],
     messages: {
+      existingConstant: "Consider using visible constant {{name}} instead of repeating this contract value; verify that they have the same meaning.",
       noMagicString:
         "Extract this {{reason}} into a named constant or configuration value.",
       duplicateString:
@@ -607,7 +638,7 @@ const stringAnalysis = {
   create(context, detection) {
     const options = normalizeOptions(context.options[0]);
     const reportContracts = detection === "contracts";
-    if (detection === "contracts") options.minDuplicates = 0;
+    if (detection !== "duplicates") options.minDuplicates = 0;
     const duplicateCandidates = new Map();
     const reportedNodes = new Set();
     const ignoreContracts = detection === "duplicates" && context.options[0]?.ignoreContracts !== false;
@@ -638,6 +669,11 @@ const stringAnalysis = {
       const suspicious = isSuspiciousContext(node, detection === "duplicates" ? duplicateContractOptions : options);
       if (!suspicious && isAllowlistedPosition(node)) return;
 
+      if (detection === "reuse") {
+        const name = suspicious ? findVisibleConstant(node, value, context.sourceCode) : null;
+        if (name) context.report({ node, messageId: "existingConstant", data: { name } });
+        return;
+      }
       if (suspicious && reportContracts) {
         context.report({ node, messageId: "noMagicString", data: { reason: getContractReason(node, options) } });
         reportedNodes.add(node);
@@ -710,12 +746,12 @@ const stringAnalysis = {
 
 /**
  * Creates an independently configurable rule using the shared string analysis.
- * @param {"contracts"|"duplicates"} detection - Reporting responsibility.
+ * @param {"contracts"|"duplicates"|"reuse"} detection - Reporting responsibility.
  * @returns {object} ESLint rule with a focused option schema.
  */
 export function createFocusedStringRule(detection) {
   const properties = { ...stringAnalysis.meta.schema[0].properties };
-  if (detection === "contracts") delete properties.minDuplicates;
+  if (detection !== "duplicates") delete properties.minDuplicates;
   if (detection === "duplicates") {
     const contractProperties = { ...properties };
     delete contractProperties.minDuplicates;
@@ -730,7 +766,7 @@ export function createFocusedStringRule(detection) {
   return {
     meta: {
       ...stringAnalysis.meta,
-      docs: { description: detection === "contracts"
+      docs: { description: detection === "reuse" ? "Suggest reusing a visible constant for inline string contracts" : detection === "contracts"
         ? "Disallow unnamed string contracts in runtime logic"
         : "Disallow repeated string values in non-structural positions" },
       schema: [{ ...stringAnalysis.meta.schema[0], properties }],

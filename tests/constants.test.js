@@ -16,6 +16,43 @@ function lint(code, name, options = {}) {
   return new Linter().verify(code, [{ languageOptions: { parser }, plugins: { "no-magic": plugin }, rules: { [`no-magic/${name}`]: ["warn", options] } }]);
 }
 
+it("should suggest a preceding visible constant in a string contract", () => {
+  const messages = lint('const PENDING = "pending" as const; status === "pending";', "prefer-existing-constant");
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0].messageId, "existingConstant");
+  assert.ok(messages[0].message.includes("PENDING"));
+  assert.equal(messages[0].fix, undefined);
+});
+
+for (const code of [
+  'status === "pending"; const PENDING = "pending";',
+  'const PENDING = "pending"; function read(PENDING) { return status === "pending"; }',
+  '{ const PENDING = "pending"; } status === "pending";',
+  'let PENDING = "pending"; status === "pending";',
+]) {
+  it(`should avoid unsafe reuse suggestions for ${code}`, () => {
+    assert.equal(lint(code, "prefer-existing-constant").length, 0);
+  });
+}
+
+it("should honor custom contract configuration for reuse", () => {
+  const code = 'const EVENT = "event"; send("event");';
+  assert.equal(lint(code, "prefer-existing-constant", { sinks: ["send"] }).length, 1);
+  assert.equal(lint(code, "prefer-existing-constant", { sinks: ["send"], ignoreStrings: ["event"] }).length, 0);
+});
+
+it("should report equal primitive constants only in the same scope", () => {
+  const messages = lint('const FIRST = 5000; const SECOND = 5000; function inner() { const THIRD = 5000; }', "no-duplicate-constants");
+  assert.equal(messages.length, 1);
+  assert.ok(messages[0].message.includes("FIRST"));
+  assert.equal(messages[0].fix, undefined);
+  assert.equal(lint('const FIRST = 5000; const SECOND = 5000;', "no-duplicate-constants", { ignoreValues: [5000] }).length, 0);
+});
+
+it("should ignore trivial and runtime-dependent initializers", () => {
+  assert.equal(lint('const FIRST = 1; const SECOND = 1; const THIRD = load(); const FOURTH = load();', "no-duplicate-constants").length, 0);
+});
+
 it("should treat imported libraries equally instead of granting framework exemptions", () => {
   const library = (source) => `import { Font } from "${source}"; Font({values: ["latin", "latin", "latin"]});`;
   const first = lint(library("next/font/google"), "no-duplicate-strings");

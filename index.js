@@ -9,6 +9,8 @@
 
 import { createRequire } from "node:module";
 
+import noDuplicateConstants from "./rules/no-duplicate-constants.js";
+
 import { createFocusedStringRule } from "./rules/string-analysis.js";
 
 /**
@@ -38,6 +40,8 @@ const plugin = {
   rules: {
     "no-magic-contracts": createFocusedStringRule("contracts"),
     "no-duplicate-strings": createFocusedStringRule("duplicates"),
+    "prefer-existing-constant": createFocusedStringRule("reuse"),
+    "no-duplicate-constants": noDuplicateConstants,
   },
   configs: {},
 };

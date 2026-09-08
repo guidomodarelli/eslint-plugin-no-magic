@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.0 - Unreleased
+
+- Add visible-constant reuse and same-scope primitive duplication checks with public types and real parser tests.
+
 ## 1.1.1 - Unreleased
 
 - Treat imported packages uniformly while preserving syntax-based exclusions and regression coverage.

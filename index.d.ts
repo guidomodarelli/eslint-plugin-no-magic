@@ -26,6 +26,9 @@ export interface NoDuplicateStringsOptions {
   contractOptions?: NoMagicContractsOptions;
 }
 
+/** Configures advisory detection of repeated primitive definitions. */
+export interface NoDuplicateConstantsOptions { ignoreValues?: Array<string | number>; }
+
 /** Defines shared contracts and independently configurable policies. */
 export interface CreateConfigOptions {
   contracts?: NoMagicContractsOptions;
@@ -54,6 +57,8 @@ declare const plugin: ESLint.Plugin & {
   rules: {
     "no-magic-contracts": Rule.RuleModule;
     "no-duplicate-strings": Rule.RuleModule;
+    "prefer-existing-constant": Rule.RuleModule;
+    "no-duplicate-constants": Rule.RuleModule;
   };
   configs: { recommended: Linter.Config[] };
 };

@@ -269,3 +269,26 @@ counts. It records the median of five measured runs after two warmups, along
 with Node, ESLint, OS, and CPU metadata. See [the baseline](benchmarks/RESULTS.md).
 The benchmark includes parsing and diagnostic construction; it is not an isolated
 rule timing or a CI performance threshold.
+
+## Advisory constant rules
+
+These optional rules implement statically verifiable parts of constant reuse:
+
+```js
+rules: {
+  "no-magic/prefer-existing-constant": "warn",
+  "no-magic/no-duplicate-constants": ["warn", { ignoreValues: [100] }],
+}
+```
+
+`prefer-existing-constant` accepts the contract rule options. It suggests a
+preceding, visible primitive string constant when the same value occurs in a
+comparison, switch case, action type, or configured call. It respects lexical
+shadowing and does not evaluate imports or expressions.
+
+`no-duplicate-constants` reports repeated primitive string/number definitions in
+the same lexical scope, excluding trivial values and `ignoreValues`. Separate
+scopes are independent. Neither rule applies automatic fixes: equal values can
+represent different business concepts. Neither infers cross-file ownership,
+folder placement, deployment configuration, or whether a shared constant is safe
+for client/server boundaries. Both are opt-in and absent from the recommended preset.
