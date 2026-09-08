@@ -361,3 +361,13 @@ do not affect the independent string contract and duplicate-string rules.
 
 Use `PreferExistingConstantOptions` or `NoDuplicateConstantsOptions` for typed
 configuration. Value-level and name-level exclusions can be combined.
+
+### Profile optional constant rules
+
+Run `pnpm benchmark:constants` to compare parser-only, reuse-only,
+duplicate-definition-only, and both optional rules on 100, 500, and 1,000
+candidates. The fixtures cover hits, misses, and 20 nested scopes. Five measured
+runs follow two warmups, with exact diagnostic assertions and ESLint per-rule
+statistics. Results are written to `benchmarks/constants-results.json`.
+See [the measured baseline](benchmarks/CONSTANTS-RESULTS.md). This command measures
+existing behavior; it neither optimizes the rules nor sets a timing gate.
