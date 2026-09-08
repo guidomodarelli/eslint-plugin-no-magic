@@ -1,7 +1,9 @@
 /** @file Exercises the packed artifact with real ESLint and TypeScript consumers. */
 import assert from "node:assert/strict";
 import { execFileSync, execSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { cpSync, mkdtempSync, mkdirSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import process from "node:process";
+import { tmpdir } from "node:os";
 import { createRequire } from "node:module";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL, URL } from "node:url";
@@ -15,6 +17,7 @@ const require = createRequire(import.meta.url);
 
 it("should lint and typecheck a consumer when the published artifact is extracted", async () => {
   const fixtureRoot = mkdtempSync(join(repositoryRoot, ".package-test-"));
+  const consumerRoot = mkdtempSync(join(tmpdir(), "no-magic-types-consumer-"));
   try {
     // The generated basename contains only a fixed prefix and random alphanumeric suffix.
     execSync(`pnpm --ignore-scripts pack --pack-destination ${basename(fixtureRoot)}`, {
@@ -41,21 +44,42 @@ it("should lint and typecheck a consumer when the published artifact is extracte
     const results = await eslint.lintText('track("event");');
     assert.ok((await formatter.format(results)).includes("configured call argument"));
 
-    // Resolve the public package export from a separate consumer directory.
-    const consumerRoot = join(fixtureRoot, "consumer");
+    // The physical consumer package is outside the repository and cannot resolve its dev dependencies.
     const modulesRoot = join(consumerRoot, "node_modules");
     mkdirSync(modulesRoot, { recursive: true });
-    symlinkSync(packageRoot, join(modulesRoot, "eslint-plugin-no-magic"), "junction");
+    cpSync(packageRoot, join(modulesRoot, "eslint-plugin-no-magic"), { recursive: true });
     symlinkSync(dirname(require.resolve("eslint/package.json")), join(modulesRoot, "eslint"), "junction");
     writeFileSync(join(consumerRoot, "package.json"), '{"type":"module"}');
-    writeFileSync(join(consumerRoot, "consumer.ts"), readFileSync(join(repositoryRoot, "tests/types/consumer.ts")));
+    for (const fixture of readdirSync(join(repositoryRoot, "tests/types"))) {
+      if (fixture.endsWith(".ts")) cpSync(join(repositoryRoot, "tests/types", fixture), join(consumerRoot, fixture));
+    }
+    const consumerEnvironment = { ...process.env };
+    delete consumerEnvironment.NODE_PATH;
+    delete consumerEnvironment.NODE_OPTIONS;
+    // Use plain Node without inherited module paths or loaders from the test runner.
+    execFileSync(process.execPath, ["--input-type=module", "--eval", `
+      import assert from "node:assert/strict";
+      import { createRequire } from "node:module";
+      import { Linter } from "eslint";
+      import { createConfig } from "eslint-plugin-no-magic";
+      import formatter from "eslint-plugin-no-magic/formatter";
+      const consumerRequire = createRequire(import.meta.url);
+      for (const dependency of ["@typescript-eslint/parser", "@typescript-eslint/utils", "@typescript/native", "typescript", "vitest", "@types/node/package.json"]) {
+        assert.throws(() => consumerRequire.resolve(dependency), { code: "MODULE_NOT_FOUND" }, dependency);
+      }
+      const messages = new Linter().verify('track("event");', createConfig());
+      assert.equal(messages.length, 1);
+      assert.equal(messages[0].ruleId, "no-magic/no-magic-contracts");
+      assert.equal(formatter([]), "");
+    `], { cwd: consumerRoot, env: consumerEnvironment, stdio: "inherit" });
     writeFileSync(join(consumerRoot, "tsconfig.json"), JSON.stringify({
       compilerOptions: { noEmit: true, strict: true, module: "NodeNext", target: "ES2022", types: [] },
-      files: ["consumer.ts"],
+      include: ["*.ts"],
     }));
-    execFileSync("node", [join(dirname(require.resolve("@typescript/native/package.json")), require("@typescript/native/package.json").bin.tsc), "--project", consumerRoot], { stdio: "inherit" });
+    execFileSync(process.execPath, [join(dirname(require.resolve("@typescript/native/package.json")), require("@typescript/native/package.json").bin.tsc), "--project", consumerRoot], { env: consumerEnvironment, stdio: "inherit" });
   } finally {
     // Remove only the fixture created by this test, including its owned junctions.
     rmSync(fixtureRoot, { recursive: true, force: true });
+    rmSync(consumerRoot, { recursive: true, force: true });
   }
 }, 60000);

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.2 - Unreleased
+
+- Expand positive and negative public TypeScript configuration contracts.
+- Restrict typed rule names while retaining ESLint plugin compatibility.
+- Verify the physical package outside the repository without development dependencies.
+
 ## 1.8.1 - Unreleased
 
 - Build once per complete check, CI and release flow.

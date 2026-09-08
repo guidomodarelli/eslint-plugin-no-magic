@@ -508,3 +508,19 @@ Standalone `pnpm test`, `pnpm typecheck`, benchmarks, and ordinary `pnpm pack`
 remain self-contained and build first. No timestamps or persistent skip flags
 are used to decide whether output is current. If build or validation fails,
 `check` stops and release preparation does not pack an artifact.
+
+### Public type isolation checks
+
+Consumer fixtures cover supported configurations and expected type errors for
+unknown rule names, invalid severities, misplaced options, malformed descriptors,
+syntax toggles, advisory settings, removed exports, and formatter options.
+Numeric ranges such as nonnegative thresholds remain runtime schema checks.
+
+The package test copies the tarball's package into a temporary consumer outside
+this repository. Only its ESLint peer is linked there. A plain Node process,
+without inherited `NODE_PATH` or module loader options, verifies the plugin works
+and that parser, utils, compiler, Vitest and Node type packages are not resolvable
+from the consumer. TypeScript 7 is invoked externally as the test compiler; it
+checks every consumer fixture against the physically copied generated declarations
+with strict checking and no implicit ambient types. This checks dependency
+isolation; it is not an npm-registry installation test.

@@ -39,7 +39,7 @@ const packageMetadata: { version: string } = createRequire(import.meta.url)("../
 /** Exposes rules and flat configuration to ESLint consumers. */
 type RuleName = "no-magic-contracts" | "no-duplicate-strings" | "prefer-existing-constant" | "no-duplicate-constants";
 /** Keeps generated public declarations independent of parser implementation types. */
-const plugin: ESLint.Plugin & { rules: Record<RuleName, Rule.RuleModule>; configs: { recommended: Linter.Config[] } } = {
+const plugin: { meta: { name: string; version: string }; rules: Record<RuleName, Rule.RuleModule>; configs: { recommended: Linter.Config[] } } = {
   meta: {
     name: "eslint-plugin-no-magic",
     version: packageMetadata.version,
@@ -51,7 +51,7 @@ const plugin: ESLint.Plugin & { rules: Record<RuleName, Rule.RuleModule>; config
     "no-duplicate-constants": toESLintRule(noDuplicateConstants),
   },
   configs: { recommended: [] },
-};
+} satisfies ESLint.Plugin;
 
 /** Public documentation root shared by all registered rule metadata. */
 const RULE_DOCUMENTATION_BASE_URL = "https://github.com/guidomodarelli/eslint-plugin-no-magic/blob/main/docs/rules";
