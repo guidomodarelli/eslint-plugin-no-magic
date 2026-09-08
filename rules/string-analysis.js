@@ -8,6 +8,8 @@
  * extracted constants, visible copy) are ignored by default.
  */
 
+import { createVisibleConstantLookup } from "./visible-constants.js";
+
 const TYPEOF_RESULT_LITERALS = new Set([
   "bigint",
   "boolean",
@@ -542,38 +544,6 @@ function getContractReason(node, options) {
   return "configured call argument";
 }
 
-/**
- * Finds a preceding, unshadowed string constant in the current lexical scope chain.
- * @param {object} node - Inline contract expression.
- * @param {string} value - Static string value to reuse.
- * @param {object} sourceCode - ESLint scope information.
- * @param {Set<string>} ignoredNames - Constant names excluded from reuse suggestions.
- * @returns {string|null} Visible constant identifier, if statically known.
- */
-function findVisibleConstant(node, value, sourceCode, ignoredNames) {
-  const shadowed = new Set();
-  let scope = sourceCode.getScope(node);
-  while (scope) {
-    for (const variable of scope.variables) {
-      if (shadowed.has(variable.name)) continue;
-      shadowed.add(variable.name);
-      if (ignoredNames.has(variable.name)) continue;
-      for (const definition of variable.defs) {
-        const declaration = definition.node;
-        if (definition.parent?.kind !== "const" || declaration.id?.type !== "Identifier" ||
-          !declaration.init || declaration.range[1] > node.range[0]) continue;
-        let initializer = declaration.init;
-        while (TRANSPARENT_EXPRESSION_TYPES.has(initializer.type)) initializer = initializer.expression;
-        const constantValue = initializer.type === "Literal" ? initializer.value :
-          initializer.type === "TemplateLiteral" ? getNoSubstitutionTemplateText(initializer) : null;
-        if (constantValue === value) return variable.name;
-      }
-    }
-    scope = scope.upper;
-  }
-  return null;
-}
-
 /** Defines schema, diagnostics, and per-file string analysis for ESLint. */
 const stringAnalysis = {
   meta: {
@@ -640,7 +610,9 @@ const stringAnalysis = {
     const options = normalizeOptions(context.options[0]);
     const reportContracts = detection === "contracts";
     if (detection !== "duplicates") options.minDuplicates = 0;
-    const ignoredNames = new Set(context.options[0]?.ignoreConstantNames ?? []);
+    const findVisibleConstant = detection === "reuse"
+      ? createVisibleConstantLookup(context.sourceCode, new Set(context.options[0]?.ignoreConstantNames ?? []))
+      : null;
     const duplicateCandidates = new Map();
     const reportedNodes = new Set();
     const ignoreContracts = detection === "duplicates" && context.options[0]?.ignoreContracts !== false;
@@ -672,7 +644,7 @@ const stringAnalysis = {
       if (!suspicious && isAllowlistedPosition(node, options.ignoreSyntax)) return;
 
       if (detection === "reuse") {
-        const name = suspicious ? findVisibleConstant(node, value, context.sourceCode, ignoredNames) : null;
+        const name = suspicious ? findVisibleConstant(node, value) : null;
         if (name) context.report({ node, messageId: "existingConstant", data: { name } });
         return;
       }

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.3 - Unreleased
+
+- Index visible string constants by lexical scope and value per rule instance.
+- Preserve temporal visibility, shadowing and candidate preference with cached lookup.
+- Verify identical diagnostics and record measured before/after performance.
+
 ## 1.5.2 - Unreleased
 
 - Add equal-value and shadowed-candidate benchmark scenarios.

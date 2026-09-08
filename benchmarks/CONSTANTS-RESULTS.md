@@ -1,40 +1,47 @@
-# Optional constant rules: performance baseline
+# Constant reuse optimization
 
-Measured at 2026-09-08T03:04:14.819Z with Node v26.8.1, ESLint 10.10.0,
+Measured on 2026-09-08T03:11:50.573Z with Node v26.8.1, ESLint 10.10.0,
 win32, 13th Gen Intel(R) Core(TM) i7-1360P.
 
-Run `pnpm benchmark:constants` to reproduce. Raw measurements are saved in
-[constants-results.json](constants-results.json).
+The same benchmark ran before and after the scope/value index change. Each cell
+is a median of five measured runs after two warmups. This table uses 1,000
+lookups and the reuse-only mode; every fixture contains 2,000 const definitions.
 
-| Scenario | Candidates | Parser only | Reuse only | Duplicates only | Both |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| wide-hit | 100 | 7.194 ms | 6.718 ms | 7.198 ms | 5.977 ms |
-| wide-hit | 500 | 28.919 ms | 47.393 ms | 27.408 ms | 41.208 ms |
-| wide-hit | 1000 | 59.801 ms | 116.640 ms | 120.966 ms | 222.043 ms |
-| wide-miss | 100 | 8.644 ms | 11.330 ms | 7.243 ms | 14.666 ms |
-| wide-miss | 500 | 52.468 ms | 117.678 ms | 53.624 ms | 78.251 ms |
-| wide-miss | 1000 | 108.612 ms | 359.840 ms | 104.960 ms | 303.587 ms |
-| nested | 100 | 5.844 ms | 10.551 ms | 7.779 ms | 10.208 ms |
-| nested | 500 | 43.733 ms | 72.241 ms | 49.459 ms | 71.603 ms |
-| nested | 1000 | 93.599 ms | 197.732 ms | 104.262 ms | 204.214 ms |
+| Scenario | Rule before | Rule after | End-to-end before | End-to-end after |
+| --- | ---: | ---: | ---: | ---: |
+| wide-hit | 97.324 ms | 3.419 ms | 164.415 ms | 66.556 ms |
+| wide-miss | 225.254 ms | 2.729 ms | 311.043 ms | 113.751 ms |
+| nested | 117.197 ms | 4.103 ms | 214.990 ms | 65.039 ms |
+| same-value | 6.644 ms | 9.699 ms | 121.964 ms | 138.942 ms |
+| shadowed-hit | 185.422 ms | 4.245 ms | 310.563 ms | 146.731 ms |
+| shadowed-miss | 237.640 ms | 2.631 ms | 388.666 ms | 74.395 ms |
 
-Each fixture has twice as many declarations as candidates and one lookup per
-candidate. `wide-hit` finds distinct preceding values; `wide-miss` scans without
-finding a matching value; `nested` performs hits through 20 lexical scopes.
-One repeated definition per candidate also exercises the duplicate rule.
+## Behavior checks
 
-Each cell is the median of five runs after two warmups. A new ESLint instance
-is used for each run, with its native stats enabled. End-to-end timings include
-configuration, parsing, traversal, and diagnostics. The JSON records separate
-parse and per-rule medians; medians should not be added across runs. Every run
-asserts zero parse failures and exact diagnostic counts for each enabled rule.
+All 72 scenario/size/mode combinations retain the same complete diagnostic hash.
+This compares text, location, order, severity, and rule ID, not just counts.
+Additional tests cover temporal shadowing, changing declaration availability,
+excluded names, equal-value preference, and repeated lint calls across files.
 
-The reuse rule took 254.950 ms of rule time for 1,000 wide misses in its solo
-run, versus 57.576 ms for wide hits. The implementation scans scope variables
-for each lookup; the repeated scans can produce quadratic work as both the
-number of definitions and lookups grow. This baseline identifies that cost;
-it does not claim an optimization. The duplicate rule uses scope-local maps.
+## Implementation
 
-These are synthetic JavaScript fixtures, not representative application timings.
-JIT, GC, instrumentation, CPU scaling and background load affect results. No CI
-performance threshold is imposed and no algorithm was changed for this benchmark.
+Each rule instance lazily indexes its own scope graph by string value. Candidate
+visibility uses the complete binding maps, including parameters and declarations
+not yet initialized. A cache keyed by starting scope and value avoids repeating
+visibility work. Dominated candidates are removed from the availability list;
+binary search preserves the first eligible declaration at each source position.
+No indexes are shared across files or rule instances. Initial indexing and
+visibility construction still cost time and memory; no universal constant-time
+claim or heap measurement is made.
+
+## Reproduction and limits
+
+- Before: `pnpm benchmark:constants --baseline` on the unoptimized implementation.
+- After: `pnpm benchmark:constants --compare` on the optimized implementation.
+- Raw data: [before](constants-before.json), [after](constants-results.json).
+
+Profiles include hits, misses, 20 nested scopes, repeated equal values, and
+parameter shadowing. Cases run sequentially; this is a local synthetic benchmark,
+not a controlled hardware experiment. JIT, GC, CPU scaling and background load
+affect timings. Small-input cases may be dominated by index setup or noise.
+The measured improvement applies to these scenarios, not every consumer.

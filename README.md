@@ -381,3 +381,8 @@ matching candidates shadowed by parameters, and fully shadowed misses.
 complete diagnostics (including messages, locations, severity, and order) across
 all recorded scenarios. Capture a new baseline only when the reference behavior
 is intentionally changed. Profiling still uses five samples after two warmups.
+
+`prefer-existing-constant` uses file-local scope/value indexes and cached visible
+candidates. Temporal availability, declaration preference, name exclusions, and
+shadowing remain unchanged. See [before/after results](benchmarks/CONSTANTS-RESULTS.md)
+for measurements and complete diagnostic-equivalence checks.

@@ -90,3 +90,41 @@ it("should treat imported libraries equally instead of granting framework exempt
   assert.equal(first.length, 3);
   assert.deepEqual(first.map((message) => message.messageId), second.map((message) => message.messageId));
 });
+
+it("should select the nearest available declaration as source position changes", () => {
+  const messages = lint('const OUTER = "pending"; { status === "pending"; const INNER = "pending"; status === "pending"; }', "prefer-existing-constant");
+  assert.equal(messages.length, 2);
+  assert.ok(messages[0].message.includes("OUTER"));
+  assert.ok(messages[1].message.includes("INNER"));
+});
+
+it("should respect temporal shadowing rather than falling back to an outer name", () => {
+  const messages = lint('const STATE = "pending"; { status === "pending"; const STATE = "pending"; status === "pending"; }', "prefer-existing-constant");
+  assert.equal(messages.length, 1);
+  assert.ok(messages[0].message.includes("STATE"));
+  assert.equal(messages[0].column, 86);
+});
+
+it("should preserve declaration preference among many equal values and excluded names", () => {
+  const declarations = Array.from({ length: 100 }, (_, index) => `const STATE_${index} = "pending";`).join("\n");
+  const ignored = Array.from({ length: 99 }, (_, index) => `STATE_${index}`);
+  const messages = lint(declarations + '\nstatus === "pending"; status === "pending";', "prefer-existing-constant", { ignoreConstantNames: ignored });
+  assert.equal(messages.length, 2);
+  assert.ok(messages.every((message) => message.message.includes("STATE_99")));
+});
+
+it("should ignore shadowed equal-value candidates while preserving another visible name", () => {
+  const messages = lint('const FIRST = "pending"; const SECOND = "pending"; function read(FIRST) { status === "pending"; }', "prefer-existing-constant");
+  assert.equal(messages.length, 1);
+  assert.ok(messages[0].message.includes("SECOND"));
+});
+
+it("should not leak scope indexes or exclusions across files and lint calls", () => {
+  const linter = new Linter();
+  const config = [{ plugins: { "no-magic": plugin }, rules: { "no-magic/prefer-existing-constant": "warn" } }];
+  assert.equal(linter.verify('const FIRST = "pending"; status === "pending";', config).length, 1);
+  assert.equal(linter.verify('status === "pending";', config).length, 0);
+  const ignored = [{ plugins: { "no-magic": plugin }, rules: { "no-magic/prefer-existing-constant": ["warn", { ignoreConstantNames: ["FIRST"] }] } }];
+  assert.equal(linter.verify('const FIRST = "pending"; status === "pending";', ignored).length, 0);
+  assert.equal(linter.verify('const FIRST = "pending"; status === "pending";', config).length, 1);
+});
