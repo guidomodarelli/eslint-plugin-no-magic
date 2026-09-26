@@ -13,7 +13,7 @@ import {
 } from "./constants/release.js";
 
 /**
- * Checks that the first versioned changelog entry describes the package version.
+ * Checks that the newest released changelog entry describes the package version.
  * @param {object} metadata - Parsed package manifest.
  * @param {string} changelog - Changelog text, deliberately ASCII for this repository.
  * @returns {void} Completes when metadata is coherent.

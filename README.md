@@ -332,18 +332,26 @@ mode disables it. Control characters are escaped to prevent terminal injection.
 Terminal-specific ambiguous Unicode widths may differ. Editors and JSON formatters
 still receive ordinary text messages with standard ESLint source locations.
 
+## Changelog
+
+Changes are recorded under `## [Unreleased]` in `CHANGELOG.md`, grouped by Keep a
+Changelog sections (`### Added`, `### Changed`, `### Deprecated`, `### Removed`,
+`### Fixed`, `### Security`), in English ASCII.
+
 ## Prepare a local release
 
 ```bash
 pnpm release:prepare
 ```
 
-This checks the package version against the first changelog entry, enforces ASCII
-release notes, runs frozen installation/tests/types/lint, then verifies the tarball
-contains its declared exports and no unexpected private files. Output goes to
+This checks the package version against the newest released changelog entry
+(skipping `[Unreleased]`), enforces ASCII release notes, runs frozen
+installation/tests/types/lint, then verifies the tarball contains its declared
+exports and no unexpected private files. Output goes to
 `releases/<version>-<sha256>/` so previous artifacts are preserved. The directory
-is ignored by Git. It does not bump versions, change release dates, create commits
-or tags, or publish. Set the intended version and write its notes before running.
+is ignored by Git. It does not bump versions, create commits or tags, or publish:
+run it once `[Unreleased]` has been released as `## [X.Y.Z] - YYYY-MM-DD` and
+the version bumped, then publish the verified tarball.
 
 ### Configurable duplicate syntax exemptions
 

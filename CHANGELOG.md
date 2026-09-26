@@ -1,17 +1,20 @@
 # Changelog
 
-## 1.9.0 - Unreleased
+## [Unreleased]
+
+### Added
 
 - Add structuralDiscriminants to classify comparisons against properties such as AST type as vocabulary.
 - Add the opt-in require-constants-location rule with configurable globs and exported-only scope.
 - Add createConfig constantsLocation and the constants-refactor preset with overridable defaults.
 
-## 1.8.4 - Unreleased
+### Changed
 
 - Centralize static rule, formatter, plugin, script and benchmark values in constants modules.
 - Keep language vocabulary and trivial literals inline and public declarations unchanged.
 - Rename the constant rules benchmark to benchmarks/constant-rules.js.
 - Cover wide CJK and full-width terminal column alignment.
+- Record new changes under [Unreleased] and validate the newest released version when preparing a release.
 
 ## 1.8.3 - Unreleased
 

@@ -15,6 +15,14 @@ it("should accept matching release notes and reject missing or conflicting entri
   validateReleaseMetadata({ version: "1.0.0-rc.1" }, "## 1.0.0-rc.1\n- Preview.\n");
 });
 
+it("should skip [Unreleased] and read Keep a Changelog release headings", () => {
+  const released = "# Changelog\n\n## [Unreleased]\n\n### Added\n\n- Pending.\n\n## [1.1.0] - 2026-09-26\n\n### Added\n\n- Preset.\n\n## 1.0.0 - Unreleased\n\n- Legacy.\n";
+  validateReleaseMetadata({ version: "1.1.0" }, released);
+  validateReleaseMetadata({ version: "1.0.0" }, "## [Unreleased]\n\n## 1.0.0 - Unreleased\n\n- Legacy.\n");
+  assert.throws(() => validateReleaseMetadata({ version: "1.2.0" }, released), /first changelog version must be 1.2.0/u);
+  assert.throws(() => validateReleaseMetadata({ version: "1.1.0" }, "## [Unreleased]\n\n- Pending.\n"), /release:/u);
+});
+
 it("should require all public exports and reject private files or traversal", () => {
   const metadata = { files: ["index.js", "index.d.ts", "LICENSE", "README.md", "CHANGELOG.md"], exports: { ".": { types: "./index.d.ts", default: "./index.js" } } };
   const entries = [...metadata.files, "package.json"].map((file) => `package/${file}`);

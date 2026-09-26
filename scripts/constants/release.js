@@ -5,8 +5,8 @@ export const RELEASE_VERSION_PATTERN = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*
 /** Release notes intentionally allow only ASCII, including ordinary line breaks. */
 // eslint-disable-next-line no-control-regex
 export const NON_ASCII_PATTERN = /[^\x00-\x7f]/u;
-/** Captures the first versioned changelog heading and its body. */
-export const FIRST_CHANGELOG_ENTRY_PATTERN = /^## (\S+)(?:[^\n]*)\n([\s\S]*?)(?=^## |$(?![\s\S]))/mu;
+/** Captures the newest released changelog heading, `## [X.Y.Z] - date` or `## X.Y.Z`, skipping `## [Unreleased]`. */
+export const FIRST_CHANGELOG_ENTRY_PATTERN = /^## (?!\[unreleased\])\[?([^\]\s]+)\]?(?:[^\n]*)\n([\s\S]*?)(?=^## |$(?![\s\S]))/imu;
 /** Matches a nonempty bullet describing a change. */
 export const CHANGELOG_CHANGE_ITEM_PATTERN = /^\s*- \S/mu;
 
