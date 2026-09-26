@@ -1,7 +1,16 @@
 /** @module release-checks Validates release metadata and the public artifact contract. */
-
-/** Accepts stable or prerelease semantic versions without a leading v. */
-const RELEASE_VERSION = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/u;
+import {
+  ARCHIVE_PACKAGE_PREFIX,
+  CHANGELOG_CHANGE_ITEM_PATTERN,
+  FIRST_CHANGELOG_ENTRY_PATTERN,
+  NON_ASCII_PATTERN,
+  PACKAGE_MANIFEST_FILE,
+  PRIVATE_PATH_SEGMENTS,
+  RELATIVE_PATH_PREFIX_PATTERN,
+  RELEASE_VERSION_PATTERN,
+  REQUIRED_PACKAGED_FILES,
+  TRAILING_SLASH_PATTERN,
+} from "./constants/release.js";
 
 /**
  * Checks that the first versioned changelog entry describes the package version.
@@ -11,13 +20,11 @@ const RELEASE_VERSION = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-(?:0|[1-9]
  * @throws {Error} When version, encoding, or release notes are inconsistent.
  */
 export function validateReleaseMetadata(metadata, changelog) {
-  if (!RELEASE_VERSION.test(metadata.version)) throw new Error("release: package.version must be a semantic version");
-  // Release notes intentionally allow only ASCII, including ordinary line breaks.
-  // eslint-disable-next-line no-control-regex
-  if (/[^\x00-\x7f]/u.test(changelog)) throw new Error("release: CHANGELOG.md must contain ASCII text only");
-  const first = /^## (\S+)(?:[^\n]*)\n([\s\S]*?)(?=^## |$(?![\s\S]))/mu.exec(changelog);
+  if (!RELEASE_VERSION_PATTERN.test(metadata.version)) throw new Error("release: package.version must be a semantic version");
+  if (NON_ASCII_PATTERN.test(changelog)) throw new Error("release: CHANGELOG.md must contain ASCII text only");
+  const first = FIRST_CHANGELOG_ENTRY_PATTERN.exec(changelog);
   if (!first || first[1] !== metadata.version) throw new Error(`release: first changelog version must be ${metadata.version}`);
-  if (!/^\s*- \S/mu.test(first[2])) throw new Error("release: current changelog entry must describe at least one change");
+  if (!CHANGELOG_CHANGE_ITEM_PATTERN.test(first[2])) throw new Error("release: current changelog entry must describe at least one change");
 }
 
 /**
@@ -29,14 +36,14 @@ export function validateReleaseMetadata(metadata, changelog) {
  */
 export function validatePackageContents(metadata, entries) {
   const paths = entries.map((entry) => {
-    if (!entry.startsWith("package/") || entry.includes("\\") || entry.split("/").includes("..")) {
+    if (!entry.startsWith(ARCHIVE_PACKAGE_PREFIX) || entry.includes("\\") || entry.split("/").includes("..")) {
       throw new Error(`release: invalid archive path ${entry}`);
     }
-    return entry.slice("package/".length).replace(/\/$/u, "");
+    return entry.slice(ARCHIVE_PACKAGE_PREFIX.length).replace(TRAILING_SLASH_PATTERN, "");
   }).filter(Boolean);
-  const allowed = [...metadata.files, "package.json"];
+  const allowed = [...metadata.files, PACKAGE_MANIFEST_FILE];
   for (const path of paths) {
-    if (path.split("/").some((part) => part.startsWith(".") || ["node_modules", "releases", "tests"].includes(part)) ||
+    if (path.split("/").some((part) => part.startsWith(".") || PRIVATE_PATH_SEGMENTS.includes(part)) ||
       !allowed.some((root) => path === root || path.startsWith(`${root}/`))) {
       throw new Error(`release: unexpected packaged file ${path}`);
     }
@@ -46,9 +53,9 @@ export function validatePackageContents(metadata, entries) {
    * @param {*} value - Export map or target.
    * @returns {string[]} Relative public artifact paths.
    */
-  const targets = (value) => typeof value === "string" ? [value.replace(/^\.\//u, "")]
+  const targets = (value) => typeof value === "string" ? [value.replace(RELATIVE_PATH_PREFIX_PATTERN, "")]
     : value && typeof value === "object" ? Object.values(value).flatMap(targets) : [];
-  for (const required of ["package.json", "LICENSE", "README.md", "CHANGELOG.md", ...targets(metadata.exports)]) {
+  for (const required of [...REQUIRED_PACKAGED_FILES, ...targets(metadata.exports)]) {
     if (!paths.includes(required)) throw new Error(`release: missing packaged file ${required}`);
   }
 }

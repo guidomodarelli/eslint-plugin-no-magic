@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.8.4 - Unreleased
+
+- Centralize static rule, formatter, plugin, script and benchmark values in constants modules.
+- Keep language vocabulary and trivial literals inline and public declarations unchanged.
+- Rename the constant rules benchmark to benchmarks/constant-rules.js.
+- Cover wide CJK and full-width terminal column alignment.
+
 ## 1.8.3 - Unreleased
 
 - Upgrade checkout, setup-node and pnpm setup actions to Node 24 runtimes.

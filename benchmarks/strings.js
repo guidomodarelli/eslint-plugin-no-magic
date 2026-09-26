@@ -7,20 +7,15 @@ import process from "node:process";
 import { Linter } from "eslint";
 import tsParser from "@typescript-eslint/parser";
 import plugin from "../dist/index.js";
+import { MEASURED_RUNS, PARSER_ONLY_MODE, WARMUP_RUNS } from "./constants/shared.js";
+import { BLOCK_COUNTS, EXPRESSION_DEPTH, FIXTURE_FILES_GLOB, LITERALS_PER_BLOCK, RECOMMENDED_DIAGNOSTICS_PER_BLOCK } from "./constants/strings-benchmark.js";
 
-/** Counts of generated blocks; each contributes three candidate strings. */
-const BLOCK_COUNTS = [100, 1000, 5000];
-/** Warmups reduce first-run effects; measured samples are summarized by median. */
-const WARMUP_RUNS = 2;
-const MEASURED_RUNS = 5;
-/** Compares parser-only cost and independent policies. */
+/** Compares parser-only cost and the recommended preset, which reports every block literal. */
 const MODES = [
-  { name: "parser-only", config: [{}], diagnosticsPerBlock: 0 },
-  { name: "recommended", config: plugin.configs.recommended, diagnosticsPerBlock: 3 },
+  { name: PARSER_ONLY_MODE, config: [{}], diagnosticsPerBlock: 0 },
+  { name: "recommended", config: plugin.configs.recommended, diagnosticsPerBlock: RECOMMENDED_DIAGNOSTICS_PER_BLOCK },
 ];
 
-/** Nesting is fixed so fixture size and AST depth vary independently. */
-const EXPRESSION_DEPTH = 40;
 /** Each fixture contributes two contracts and one generic duplicate per block. */
 const FIXTURES = [
   { name: "javascript", filename: "fixture.js", languageOptions: {},
@@ -39,7 +34,7 @@ for (const fixture of FIXTURES) {
     const code = fixture.block.repeat(blocks);
     for (const mode of MODES) {
       const config = [
-        { files: ["**/*.{js,jsx,ts}"], languageOptions: fixture.languageOptions },
+        { files: [FIXTURE_FILES_GLOB], languageOptions: fixture.languageOptions },
         ...mode.config,
       ];
       const samples = [];
@@ -53,7 +48,7 @@ for (const fixture of FIXTURES) {
         if (run >= WARMUP_RUNS) samples.push(elapsed);
       }
       samples.sort((left, right) => left - right);
-      console.log(JSON.stringify({ fixture: fixture.name, blocks, literals: blocks * 3, mode: mode.name, medianMs: Number(samples[Math.floor(samples.length / 2)].toFixed(2)) }));
+      console.log(JSON.stringify({ fixture: fixture.name, blocks, literals: blocks * LITERALS_PER_BLOCK, mode: mode.name, medianMs: Number(samples[Math.floor(samples.length / 2)].toFixed(2)) }));
     }
   }
 }

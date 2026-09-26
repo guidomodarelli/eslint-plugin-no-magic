@@ -79,6 +79,16 @@ it("should align source spans after tabs and emoji", () => {
   assert.ok(lines.some((line) => line.endsWith("^^^")));
 });
 
+it("should align source spans after wide CJK and full-width characters but not half-width ones", () => {
+  // Ideograph, Hangul syllable, full-width letter, and leading Hangul jamo occupy two columns; half-width katakana one.
+  const output = createFormatter({ color: false, unicode: false })([{
+    filePath: "wide.js", source: '"漢한Ａᄀｱ"; bad', messages: [{ severity: 2, line: 1, column: 10, endLine: 1, endColumn: 13, message: "Example", ruleId: "example" }],
+  }]);
+  const gutterWidth = "1 | ".length;
+  const precedingColumns = '"'.length + 4 * 2 + 1 + '"; '.length;
+  assert.ok(output.split("\n").includes(`| ${" ".repeat(gutterWidth + precedingColumns)}^^^`));
+});
+
 it("should link an absolute file position with escaped URL characters", () => {
   const results = [{ filePath: resolve("space # file.js"), messages: [{ severity: 2, line: 3, column: 7, message: "Example" }] }];
   const output = createFormatter({ color: false, hyperlinks: true })(results);
