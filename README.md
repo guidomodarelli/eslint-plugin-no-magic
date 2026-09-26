@@ -38,9 +38,10 @@ Development uses pnpm 12+ (pinned to 12.3.4) and Vitest 5.
 - [no-duplicate-strings](docs/rules/no-duplicate-strings.md): repeated static strings.
 - [prefer-existing-constant](docs/rules/prefer-existing-constant.md): visible string reuse.
 - [no-duplicate-constants](docs/rules/no-duplicate-constants.md): repeated primitive definitions.
+- [require-constants-location](docs/rules/require-constants-location.md): static constants outside constants modules.
 
 Each rule includes examples, defaults, options, and known limitations. ESLint
-`meta.docs.url` points to its page, and the package includes all four documents.
+`meta.docs.url` points to its page, and the package includes all five documents.
 
 ## Shared configuration
 
@@ -398,6 +399,29 @@ candidates. Temporal availability, declaration preference, name exclusions, and
 shadowing remain unchanged. See [before/after results](benchmarks/CONSTANTS-RESULTS.md)
 for measurements and complete diagnostic-equivalence checks.
 
+### constants-refactor preset
+
+```js
+export default createConfig({
+  files: ["src/**/*.{js,ts,tsx}"],
+  preset: "constants-refactor",
+});
+```
+
+The preset applies one policy across rules, matching a "every static constant
+lives in `constants/`" refactor workflow:
+
+- `contracts.structuralDiscriminants` defaults to `["type", "kind", "operator"]`,
+  so comparisons such as `node.type === "Identifier"` are treated as language
+  vocabulary by contract, duplicate, and reuse rules. This also exempts
+  `action.type === "ADD_TODO"`; override the list where `type` carries contracts.
+- `constantsLocation` is enabled with `exportedOnly: false`, requiring every
+  static module-level constant to live under `**/constants/**`.
+
+Explicit settings always win: `contracts.structuralDiscriminants`, a
+`constantsLocation` object (merged over the preset defaults), or
+`constantsLocation: false`. Without `preset`, output is unchanged.
+
 ### Advisory rules through createConfig
 
 ```js
@@ -407,6 +431,9 @@ createConfig({
   constantDuplicates: { severity: "warn", ignoreValues: [100] },
 });
 ```
+
+`constantsLocation: { severity, patterns, exportedOnly, ignoreConstantNames }`
+enables `require-constants-location` the same way.
 
 Both advisory options default to `false`. `true` enables a rule with warning
 severity. An object enables it with options and an optional severity. Reuse

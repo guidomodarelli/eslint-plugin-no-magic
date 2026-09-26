@@ -19,6 +19,7 @@ for (const [name, valid, invalid, count] of [
   ["no-duplicate-strings", 'const PENDING = "pending"; label(PENDING); label(PENDING); label(PENDING);', 'label("pending"); label("pending"); label("pending");', 3],
   ["prefer-existing-constant", 'const PENDING = "pending"; status === PENDING;', 'const PENDING = "pending"; status === "pending";', 1],
   ["no-duplicate-constants", 'const TIMEOUT = 5000; const PRIMARY = TIMEOUT; const SECONDARY = TIMEOUT;', 'const PRIMARY = 5000; const SECONDARY = 5000;', 1],
+  ["require-constants-location", "export const STARTED_AT = Date.now();", "export const REQUEST_TIMEOUT_MS = 5000;", 1],
 ]) {
   it(`should implement the documented basic examples for ${name}`, () => {
     const config = [{ plugins: { "no-magic": plugin }, rules: { [`no-magic/${name}`]: "warn" } }];

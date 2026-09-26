@@ -312,6 +312,33 @@ function isTypeofComparisonLiteral(node: Node, value: string) {
 }
 
 /**
+ * Recognizes static reads of configured structural properties, including optional chains.
+ * @param node - Compared expression.
+ * @param discriminants - Structural property names.
+ * @returns Whether the expression reads a structural discriminant.
+ */
+function isStructuralDiscriminantAccess(node: Node | null | undefined, discriminants: ReadonlySet<string>) {
+  while (node && (isTransparentExpression(node) || node.type === "ChainExpression")) node = node.expression;
+  return node?.type === "MemberExpression" && discriminants.has(getStaticPropertyName(node.property, node.computed) ?? "");
+}
+
+/**
+ * Recognizes values compared or switched against structural vocabulary, such as `node.type`.
+ * @param node - Runtime expression after wrappers and value branches.
+ * @param discriminants - Structural property names; empty disables the exemption.
+ * @returns Whether the string names structure rather than a contract.
+ */
+function isStructuralDiscriminantValue(node: Node, discriminants: ReadonlySet<string>) {
+  if (!discriminants.size) return false;
+  const parent = getParent(node);
+  if (parent?.type === "BinaryExpression" && EQUALITY_OPERATORS.has(parent.operator)) {
+    return isStructuralDiscriminantAccess(parent.left === node ? parent.right : parent.left, discriminants);
+  }
+  return parent?.type === "SwitchCase" && parent.test === node &&
+    parent.parent.type === "SwitchStatement" && isStructuralDiscriminantAccess(parent.parent.discriminant, discriminants);
+}
+
+/**
  * Recognizes TypeScript literal-type declarations.
  * @param node - AST node to inspect.
  * @returns The derived value or context match.
@@ -544,6 +571,9 @@ function normalizeOptions(rawOptions: StringRuleOptions = {}) {
     ignoreStrings: new Set(
       Array.isArray(rawOptions.ignoreStrings) ? rawOptions.ignoreStrings : []
     ),
+    structuralDiscriminants: new Set(
+      Array.isArray(rawOptions.structuralDiscriminants) ? rawOptions.structuralDiscriminants : []
+    ),
   };
 }
 
@@ -685,8 +715,10 @@ const stringAnalysis: {
       if (!value || options.ignoreStrings.has(value)) return;
       const contextNode = getContextNode(node);
       if (isDirectiveLiteral(node) || isTypeofComparisonLiteral(contextNode, value)) return;
+      const classification = detection === DETECTIONS.duplicates ? duplicateContractOptions : options;
+      if (isStructuralDiscriminantValue(contextNode, classification.structuralDiscriminants)) return;
 
-      const suspicious = isSuspiciousContext(node, detection === DETECTIONS.duplicates ? duplicateContractOptions : options);
+      const suspicious = isSuspiciousContext(node, classification);
       if (!suspicious && isAllowlistedPosition(node, options.ignoreSyntax)) return;
 
       if (detection === DETECTIONS.reuse) {
@@ -737,7 +769,8 @@ const stringAnalysis: {
           return;
         }
 
-        if (reportContracts && isSuspiciousContext(node, options)) {
+        if (reportContracts && !isStructuralDiscriminantValue(getContextNode(node), options.structuralDiscriminants) &&
+          isSuspiciousContext(node, options)) {
           context.report({ node, messageId: STRING_MESSAGE_IDS.noMagicString, data: { reason: getContractReason(node, options) } });
         }
       },
@@ -789,6 +822,7 @@ export function createFocusedStringRule(detection: Detection): TSESLint.RuleModu
     delete properties.sinks;
     delete properties.actionTypeCallees;
     delete properties.actionTypeProperty;
+    delete properties.structuralDiscriminants;
   }
   return {
     meta: {

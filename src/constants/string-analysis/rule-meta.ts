@@ -49,6 +49,11 @@ export const RULE_OPTION_PROPERTIES: Readonly<Record<string, JSONSchema.JSONSche
     type: "array",
     items: { type: "string" },
   },
+  structuralDiscriminants: {
+    type: "array",
+    items: { type: "string", minLength: 1 },
+    uniqueItems: true,
+  },
 };
 
 /** Independent syntax exemptions accepted by the duplicate rule. */

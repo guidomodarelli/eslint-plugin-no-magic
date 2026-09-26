@@ -15,11 +15,14 @@ export type * from "./types.js";
 import { createRequire } from "node:module";
 
 import noDuplicateConstants from "./rules/no-duplicate-constants.js";
+import requireConstantsLocation from "./rules/require-constants-location.js";
 
 import { createFocusedStringRule } from "./rules/string-analysis.js";
 import { DETECTIONS } from "./constants/string-analysis/index.js";
 import {
   ADVISORY_OPTION_KEYS,
+  CONFIG_PRESETS,
+  CONSTANTS_REFACTOR_PRESET,
   CREATE_CONFIG_OPTION_KEYS,
   DEFAULT_ADVISORY_SEVERITY,
   DEFAULT_CONTRACT_SEVERITY,
@@ -29,6 +32,8 @@ import {
   PACKAGE_MANIFEST_SPECIFIER,
   PLUGIN_NAME,
   PLUGIN_NAMESPACE,
+  PRESET_CONSTANTS_LOCATION,
+  PRESET_STRUCTURAL_DISCRIMINANTS,
   QUALIFIED_RULE_NAMES,
   RULE_DOCUMENTATION_BASE_URL,
   RULE_DOCUMENTATION_EXTENSION,
@@ -41,7 +46,7 @@ export { recommendedMagicNumberOptions } from "./constants/plugin.js";
 const packageMetadata: { version: string } = createRequire(import.meta.url)(PACKAGE_MANIFEST_SPECIFIER);
 
 /** Exposes rules and flat configuration to ESLint consumers. */
-type RuleName = "no-magic-contracts" | "no-duplicate-strings" | "prefer-existing-constant" | "no-duplicate-constants";
+type RuleName = "no-magic-contracts" | "no-duplicate-strings" | "prefer-existing-constant" | "no-duplicate-constants" | "require-constants-location";
 /** Keeps generated public declarations independent of parser implementation types. */
 const plugin: { meta: { name: string; version: string }; rules: Record<RuleName, Rule.RuleModule>; configs: { recommended: Linter.Config[] } } = {
   meta: {
@@ -53,6 +58,7 @@ const plugin: { meta: { name: string; version: string }; rules: Record<RuleName,
     [RULE_NAMES.noDuplicateStrings]: toESLintRule(createFocusedStringRule(DETECTIONS.duplicates)),
     [RULE_NAMES.preferExistingConstant]: toESLintRule(createFocusedStringRule(DETECTIONS.reuse)),
     [RULE_NAMES.noDuplicateConstants]: toESLintRule(noDuplicateConstants),
+    [RULE_NAMES.requireConstantsLocation]: toESLintRule(requireConstantsLocation),
   },
   configs: { recommended: [] },
 } satisfies ESLint.Plugin;
@@ -63,9 +69,9 @@ for (const [name, rule] of Object.entries(plugin.rules)) {
 
 /**
  * Builds independent rule configuration from one shared contract definition.
- * @param settings - Contracts, duplicate policy, severities, and optional file globs.
+ * @param settings - Contracts, duplicate policy, severities, advisory rules, preset, and optional file globs.
  * @returns ESLint flat configuration with isolated option copies.
- * @throws TypeError - When configuration contains unsupported top-level keys or severities.
+ * @throws TypeError - When configuration contains unsupported top-level keys, presets, or severities.
  */
 export function createConfig(settings: CreateConfigOptions = {}): Linter.Config[] {
   if (!settings || typeof settings !== "object" || Array.isArray(settings)) {
@@ -74,7 +80,11 @@ export function createConfig(settings: CreateConfigOptions = {}): Linter.Config[
   for (const key of Object.keys(settings)) {
     if (!CREATE_CONFIG_OPTION_KEYS.includes(key)) throw new TypeError(`createConfig: unsupported option ${key}`);
   }
-  const { contracts = {}, duplicates = {}, contractSeverity = DEFAULT_CONTRACT_SEVERITY, duplicateSeverity = DEFAULT_DUPLICATE_SEVERITY, files } = settings;
+  const { contracts = {}, duplicates = {}, contractSeverity = DEFAULT_CONTRACT_SEVERITY, duplicateSeverity = DEFAULT_DUPLICATE_SEVERITY, files, preset } = settings;
+  if (preset !== undefined && !CONFIG_PRESETS.includes(preset)) {
+    throw new TypeError(`createConfig: unsupported preset ${String(preset)}; expected ${CONFIG_PRESETS.join(", ")}`);
+  }
+  const constantsRefactor = preset === CONSTANTS_REFACTOR_PRESET;
   if (!RULE_SEVERITIES.includes(contractSeverity) || !RULE_SEVERITIES.includes(duplicateSeverity)) {
     throw new TypeError("createConfig: severity must be off, warn, error, 0, 1, or 2");
   }
@@ -85,18 +95,25 @@ export function createConfig(settings: CreateConfigOptions = {}): Linter.Config[
   if (files !== undefined && (!Array.isArray(files) || files.some((pattern) => typeof pattern !== "string"))) {
     throw new TypeError("createConfig: files must be an array of glob strings");
   }
-  const contractOptions: NoMagicContractsOptions = JSON.parse(JSON.stringify(contracts));
+  const contractOptions: NoMagicContractsOptions = JSON.parse(JSON.stringify(constantsRefactor && contracts.structuralDiscriminants === undefined
+    ? { ...contracts, structuralDiscriminants: PRESET_STRUCTURAL_DISCRIMINANTS }
+    : contracts));
   const duplicateOptions: Omit<NoDuplicateStringsOptions, "contractOptions"> = JSON.parse(JSON.stringify(duplicates));
   /**
    * Builds an opt-in advisory rule entry while preserving shared contract options.
    * @param name - Public helper option name.
    * @param ruleName - Registered rule identifier.
    * @param inherited - Shared options for this rule.
+   * @param presetOptions - Preset defaults enabling the rule unless explicitly disabled; explicit options override them.
    * @returns Rule entry or an empty object when disabled.
    * @throws TypeError - When an advisory configuration or severity is invalid.
    */
-  function advisory(name: "reuse" | "constantDuplicates", ruleName: string, inherited: object = {}): Linter.RulesRecord {
-    const value = settings[name];
+  function advisory(name: "reuse" | "constantDuplicates" | "constantsLocation", ruleName: string, inherited: object = {}, presetOptions?: object): Linter.RulesRecord {
+    const explicit = settings[name];
+    const isOptionsObject = Boolean(explicit) && typeof explicit === "object" && !Array.isArray(explicit);
+    const value = presetOptions === undefined ? explicit
+      : explicit === undefined || explicit === true ? { ...presetOptions }
+      : isOptionsObject ? { ...presetOptions, ...(explicit as object) } : explicit;
     if (value === undefined) return {};
     if (value === false) return { [ruleName]: DISABLED_SEVERITY_NAME };
     if (value !== true && (!value || typeof value !== "object" || Array.isArray(value))) {
@@ -115,6 +132,7 @@ export function createConfig(settings: CreateConfigOptions = {}): Linter.Config[
     rules: {
       ...advisory("reuse", QUALIFIED_RULE_NAMES.preferExistingConstant, contractOptions),
       ...advisory("constantDuplicates", QUALIFIED_RULE_NAMES.noDuplicateConstants),
+      ...advisory("constantsLocation", QUALIFIED_RULE_NAMES.requireConstantsLocation, {}, constantsRefactor ? PRESET_CONSTANTS_LOCATION : undefined),
       [QUALIFIED_RULE_NAMES.noMagicContracts]: [contractSeverity, contractOptions],
       [QUALIFIED_RULE_NAMES.noDuplicateStrings]: [duplicateSeverity, {
         ignoreStrings: [...(contractOptions.ignoreStrings ?? [])],

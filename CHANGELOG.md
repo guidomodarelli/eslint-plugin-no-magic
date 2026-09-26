@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.9.0 - Unreleased
+
+- Add structuralDiscriminants to classify comparisons against properties such as AST type as vocabulary.
+- Add the opt-in require-constants-location rule with configurable globs and exported-only scope.
+- Add createConfig constantsLocation and the constants-refactor preset with overridable defaults.
+
 ## 1.8.4 - Unreleased
 
 - Centralize static rule, formatter, plugin, script and benchmark values in constants modules.
