@@ -332,11 +332,29 @@ mode disables it. Control characters are escaped to prevent terminal injection.
 Terminal-specific ambiguous Unicode widths may differ. Editors and JSON formatters
 still receive ordinary text messages with standard ESLint source locations.
 
-## Changelog
+## Create a version
 
 Changes are recorded under `## [Unreleased]` in `CHANGELOG.md`, grouped by Keep a
 Changelog sections (`### Added`, `### Changed`, `### Deprecated`, `### Removed`,
-`### Fixed`, `### Security`), in English ASCII.
+`### Fixed`, `### Security`), in English ASCII. Never edit the version or the
+release date by hand.
+
+```bash
+pnpm create-version            # alias: pnpm cv
+pnpm create-version --dry-run  # diagnosis and plan only
+pnpm create-version --bump minor
+```
+
+The command comes from [`beez-rp`](https://github.com/guidomodarelli/beez-rp),
+shared by the Beez projects, and is configured in `beez-rp.config.js`. From a
+clean, synced `main` it asks Codex to fill an empty `[Unreleased]` block in English
+ASCII, lets you choose the next patch, minor or major version, releases
+`[Unreleased]` as `## [X.Y.Z] - YYYY-MM-DD`, commits `package.json` and
+`CHANGELOG.md` as `X.Y.Z` with the annotated `vX.Y.Z` tag, runs
+`pnpm release:prepare` on that commit, and pushes `main` plus the tag atomically.
+Feature branches, uncommitted files or foreign commits on `main` stop it with the
+next action to take, and running it again resumes a release left unpushed.
+Publishing the verified tarball stays manual.
 
 ## Prepare a local release
 
@@ -350,8 +368,7 @@ installation/tests/types/lint, then verifies the tarball contains its declared
 exports and no unexpected private files. Output goes to
 `releases/<version>-<sha256>/` so previous artifacts are preserved. The directory
 is ignored by Git. It does not bump versions, create commits or tags, or publish:
-run it once `[Unreleased]` has been released as `## [X.Y.Z] - YYYY-MM-DD` and
-the version bumped, then publish the verified tarball.
+`pnpm create-version` runs it on the release commit; publish that tarball.
 
 ### Configurable duplicate syntax exemptions
 

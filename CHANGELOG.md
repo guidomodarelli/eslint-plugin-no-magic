@@ -7,6 +7,7 @@
 - Add structuralDiscriminants to classify comparisons against properties such as AST type as vocabulary.
 - Add the opt-in require-constants-location rule with configurable globs and exported-only scope.
 - Add createConfig constantsLocation and the constants-refactor preset with overridable defaults.
+- Add pnpm create-version, powered by beez-rp, to release from main with a version commit, tag and verified tarball.
 
 ### Changed
 
