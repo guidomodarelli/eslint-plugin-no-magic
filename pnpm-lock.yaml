@@ -122,8 +122,8 @@ importers:
         specifier: npm:typescript@^7.0.2
         version: typescript@7.0.2
       beez-rp:
-        specifier: ^0.4.0
-        version: 0.4.0
+        specifier: ^0.5.0
+        version: 0.5.0
       eslint:
         specifier: 10.10.0
         version: 10.10.0(supports-color@7.2.0)
@@ -659,8 +659,8 @@ packages:
     resolution: {integrity: sha512-BLrgEcRTwX2o6gGxGOCNyMvGSp35YofuYzw9h1IMTRmKqttAZZVU67bdb9Pr2vUHA8+j3i2tJfjO6C6+4myGTA==}
     engines: {node: 18 || 20 || >=22}
 
-  beez-rp@0.4.0:
-    resolution: {integrity: sha512-cdjtrGkCxVqdx6eYJpIXGg2kUQdWVKzy/jJQ2opKatMQgkFOK2baXfvQRAcyOa20scAx6xytHHGiDR726DJDSw==}
+  beez-rp@0.5.0:
+    resolution: {integrity: sha512-QU8X5BXIMTod63eJUs/b4aK0W31r42VGheHifno1X8sBmc1O9ciKNagCT5oMSM/3PVCgMVD3B/pb0J5/ajG0aQ==}
     engines: {node: '>=22'}
     hasBin: true
 
@@ -1523,7 +1523,7 @@ snapshots:
 
   balanced-match@4.0.4: {}
 
-  beez-rp@0.4.0: {}
+  beez-rp@0.5.0: {}
 
   brace-expansion@5.0.9:
     dependencies:
