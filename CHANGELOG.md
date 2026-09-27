@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.9.1] - 2026-09-27
+
 ### Changed
 
 - Publish each release to npm automatically from pnpm create-version, using the verified tarball.
