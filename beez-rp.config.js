@@ -10,7 +10,7 @@ export default {
   },
   // Frozen install, full checks and a checksum-addressed tarball of the release commit.
   prepare: ["pnpm release:prepare"],
-  // Publishes that exact verified tarball with NPM_TOKEN from the environment or the ignored .env.
+  // beez-rp re-verifies that exact tarball (SHA-256 and contents) and publishes it with NPM_TOKEN from the environment or the ignored .env.
   publish: "npm",
-  artifact: "releases/{version}-*/{name}-{version}.tgz",
+  artifact: "releases/{version}-{sha256}/{name}-{version}.tgz",
 };

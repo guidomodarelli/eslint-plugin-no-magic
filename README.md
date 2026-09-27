@@ -212,31 +212,22 @@ pnpm benchmark # Deterministic end-to-end lint benchmark
 
 ## Publishing
 
-`pnpm create-version` publishes automatically. The steps below cover the token it
-uses and manual publication outside that flow.
+`pnpm create-version` publishes automatically. It needs an npm automation token:
 
-Authentication uses an npm automation token read from the environment. `.npmrc`
-points the registry auth token at `${NPM_TOKEN}`; npm substitutes it from the
-process environment (npm does not read `.env` itself, so load it first).
+```bash
+cp .env.example .env   # then edit .env and set NPM_TOKEN
+```
 
-1. Copy the env template and fill in the token:
-   ```bash
-   cp .env.example .env   # then edit .env and set NPM_TOKEN
-   ```
-2. Load `NPM_TOKEN` into the environment and publish:
-   - PowerShell:
-     ```powershell
-     $env:NPM_TOKEN = (Get-Content .env | Where-Object { $_ -match '^NPM_TOKEN=' }) -replace '^NPM_TOKEN=', ''
-     pnpm publish --access public
-     ```
-   - bash/zsh:
-     ```bash
-     export $(grep -v '^#' .env | xargs) && pnpm publish --access public
-     ```
-
-`.env` is gitignored and `.npmrc` is excluded from the published tarball by the
-`files` whitelist in `package.json`, so neither the token nor the auth config
-ship with the package.
+The token is read from the environment or the gitignored `.env` and is never
+printed. The repository has no `.npmrc`: [`beez-rp`](https://github.com/guidomodarelli/beez-rp)
+writes a temporary npm user config outside the repository that only references
+`${NPM_TOKEN}` (npm expands it from the environment, so the token never reaches
+the disk or a command line), passes it with `--userconfig` and removes it
+afterwards. Before publishing, it verifies the SHA-256 in the
+`releases/<version>-<sha256>/` path and the archive contents (safe paths, no
+private or undeclared files, every public entrypoint, same name and version),
+then publishes that exact tarball. npm inherits the terminal, so its interactive
+browser or one-time-password confirmation still works.
 
 ## License
 
