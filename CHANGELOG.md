@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-09-27
+
 ### Added
 
 - Add structuralDiscriminants to classify comparisons against properties such as AST type as vocabulary.
