@@ -7,4 +7,4 @@ minimumReleaseAgeExclude:
   - '@typescript-eslint/typescript-estree@8.70.0'
   - '@typescript-eslint/visitor-keys@8.70.0'
   - '@typescript-eslint/utils@8.70.0'
-  - beez-rp@0.2.0
+  - beez-rp@0.2.0 || 0.3.0
