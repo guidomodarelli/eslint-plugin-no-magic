@@ -205,7 +205,7 @@ enforces `const`.
 pnpm install
 pnpm build    # TypeScript implementation -> dist/ JavaScript and declarations
 pnpm test     # Vitest 5 + ESLint RuleTester
-pnpm lint
+pnpm lint     # oxlint (.oxlintrc.json) over the repository's own code
 pnpm typecheck # Public configuration types
 pnpm benchmark # Deterministic end-to-end lint benchmark
 ```

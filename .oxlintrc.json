@@ -1,0 +1,33 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["eslint", "typescript", "oxc", "unicorn", "import", "node", "vitest"],
+  "categories": {
+    "correctness": "error"
+  },
+  "env": {
+    "node": true,
+    "es2024": true
+  },
+  "ignorePatterns": ["dist/**", "releases/**"],
+  "rules": {
+    "no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+    "vitest/valid-expect": ["error", { "maxArgs": 2 }]
+  },
+  "overrides": [
+    {
+      "files": ["src/**/*.ts"],
+      "rules": {
+        "no-undef": "off",
+        "no-unused-vars": "off",
+        "typescript/no-explicit-any": "error"
+      }
+    },
+    {
+      "files": ["tests/types/**/*.ts"],
+      "rules": {
+        "no-unused-vars": "off",
+        "no-unused-expressions": "off"
+      }
+    }
+  ]
+}
