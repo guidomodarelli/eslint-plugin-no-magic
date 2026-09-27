@@ -20,7 +20,7 @@ it("should lint and typecheck a consumer when the published artifact is extracte
   const consumerRoot = mkdtempSync(join(tmpdir(), "no-magic-types-consumer-"));
   try {
     // The generated basename contains only a fixed prefix and random alphanumeric suffix.
-    execSync(`pnpm --ignore-scripts pack --pack-destination ${basename(fixtureRoot)}`, {
+    execSync(`npm pack --ignore-scripts --pack-destination ${basename(fixtureRoot)}`, {
       cwd: repositoryRoot,
       stdio: "pipe",
     });

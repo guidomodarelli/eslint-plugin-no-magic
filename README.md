@@ -212,28 +212,25 @@ pnpm benchmark # Deterministic end-to-end lint benchmark
 
 ## Publishing
 
-Authentication uses an npm automation token read from the environment. `.npmrc`
-points the registry auth token at `${NPM_TOKEN}`; npm substitutes it from the
-process environment (npm does not read `.env` itself, so load it first).
+`pnpm create-version` publishes automatically. It needs an npm automation token:
 
-1. Copy the env template and fill in the token:
-   ```bash
-   cp .env.example .env   # then edit .env and set NPM_TOKEN
-   ```
-2. Load `NPM_TOKEN` into the environment and publish:
-   - PowerShell:
-     ```powershell
-     $env:NPM_TOKEN = (Get-Content .env | Where-Object { $_ -match '^NPM_TOKEN=' }) -replace '^NPM_TOKEN=', ''
-     pnpm publish --access public
-     ```
-   - bash/zsh:
-     ```bash
-     export $(grep -v '^#' .env | xargs) && pnpm publish --access public
-     ```
+```bash
+cp .env.example .env   # then edit .env and set NPM_TOKEN
+```
 
-`.env` is gitignored and `.npmrc` is excluded from the published tarball by the
-`files` whitelist in `package.json`, so neither the token nor the auth config
-ship with the package.
+The token is read from the environment or the gitignored `.env` and is never
+printed. The repository has no `.npmrc`: [`beez-rp`](https://github.com/guidomodarelli/beez-rp)
+writes a temporary npm user config outside the repository that only references
+`${NPM_TOKEN}` (npm expands it from the environment, so the token never reaches
+the disk or a command line), passes it with `--userconfig` and removes it
+afterwards. Before publishing, it requires the release commit to stay unmodified,
+checks the SHA-256 in the `releases/<version>-<sha256>/` path, and compares the
+tarball SHA-512 with the `integrity` of `npm pack --dry-run` for that commit;
+`npm pack` is reproducible, so a match proves the archive is byte for byte what
+npm would pack. Only then it publishes that exact tarball. `prepublishOnly` runs
+`beez-rp guard-publish`, which stops a manual `pnpm publish` (or yarn/bun): publish
+only through `pnpm create-version`, which publishes with npm. npm inherits the terminal, so its interactive
+browser or one-time-password confirmation still works.
 
 ## License
 
@@ -351,10 +348,11 @@ clean, synced `main` it asks Codex to fill an empty `[Unreleased]` block in Engl
 ASCII, lets you choose the next patch, minor or major version, releases
 `[Unreleased]` as `## [X.Y.Z] - YYYY-MM-DD`, commits `package.json` and
 `CHANGELOG.md` as `X.Y.Z` with the annotated `vX.Y.Z` tag, runs
-`pnpm release:prepare` on that commit, and pushes `main` plus the tag atomically.
+`pnpm release:prepare` on that commit, pushes `main` plus the tag atomically, and
+publishes that exact verified tarball to npm with `NPM_TOKEN` (see Publishing).
 Feature branches, uncommitted files or foreign commits on `main` stop it with the
-next action to take, and running it again resumes a release left unpushed.
-Publishing the verified tarball stays manual.
+next action to take. Running it again resumes a release left unpushed or a version
+npm does not have yet, preparing and publishing only what is missing.
 
 ## Prepare a local release
 
@@ -364,11 +362,12 @@ pnpm release:prepare
 
 This checks the package version against the newest released changelog entry
 (skipping `[Unreleased]`), enforces ASCII release notes, runs frozen
-installation/tests/types/lint, then verifies the tarball contains its declared
-exports and no unexpected private files. Output goes to
+installation/tests/types/lint, packs with `npm pack --ignore-scripts` (npm, not
+pnpm, so the archive is reproducible), then verifies the tarball contains its
+declared exports and no unexpected private files. Output goes to
 `releases/<version>-<sha256>/` so previous artifacts are preserved. The directory
 is ignored by Git. It does not bump versions, create commits or tags, or publish:
-`pnpm create-version` runs it on the release commit; publish that tarball.
+`pnpm create-version` runs it on the release commit and publishes that tarball.
 
 ### Configurable duplicate syntax exemptions
 
