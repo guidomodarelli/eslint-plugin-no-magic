@@ -1,4 +1,4 @@
-/** @file `beez-rp create-version` configuration: English ASCII changelog, verified tarball, manual npm publication. */
+/** @file `beez-rp create-version` configuration: English ASCII changelog, verified tarball published to npm. */
 
 /** @type {import("beez-rp/create-version").CreateVersionConfig} */
 export default {
@@ -10,5 +10,7 @@ export default {
   },
   // Frozen install, full checks and a checksum-addressed tarball of the release commit.
   prepare: ["pnpm release:prepare"],
-  summary: ["Publicá el tarball verificado de releases/{version}-<sha256>/ con pnpm publish."],
+  // Publishes that exact verified tarball with NPM_TOKEN from the environment or the ignored .env.
+  publish: "npm",
+  artifact: "releases/{version}-*/{name}-{version}.tgz",
 };

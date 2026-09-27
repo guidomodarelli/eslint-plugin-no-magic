@@ -212,6 +212,9 @@ pnpm benchmark # Deterministic end-to-end lint benchmark
 
 ## Publishing
 
+`pnpm create-version` publishes automatically. The steps below cover the token it
+uses and manual publication outside that flow.
+
 Authentication uses an npm automation token read from the environment. `.npmrc`
 points the registry auth token at `${NPM_TOKEN}`; npm substitutes it from the
 process environment (npm does not read `.env` itself, so load it first).
@@ -351,10 +354,11 @@ clean, synced `main` it asks Codex to fill an empty `[Unreleased]` block in Engl
 ASCII, lets you choose the next patch, minor or major version, releases
 `[Unreleased]` as `## [X.Y.Z] - YYYY-MM-DD`, commits `package.json` and
 `CHANGELOG.md` as `X.Y.Z` with the annotated `vX.Y.Z` tag, runs
-`pnpm release:prepare` on that commit, and pushes `main` plus the tag atomically.
+`pnpm release:prepare` on that commit, pushes `main` plus the tag atomically, and
+publishes that exact verified tarball to npm with `NPM_TOKEN` (see Publishing).
 Feature branches, uncommitted files or foreign commits on `main` stop it with the
-next action to take, and running it again resumes a release left unpushed.
-Publishing the verified tarball stays manual.
+next action to take. Running it again resumes a release left unpushed or a version
+npm does not have yet, preparing and publishing only what is missing.
 
 ## Prepare a local release
 
@@ -368,7 +372,7 @@ installation/tests/types/lint, then verifies the tarball contains its declared
 exports and no unexpected private files. Output goes to
 `releases/<version>-<sha256>/` so previous artifacts are preserved. The directory
 is ignored by Git. It does not bump versions, create commits or tags, or publish:
-`pnpm create-version` runs it on the release commit; publish that tarball.
+`pnpm create-version` runs it on the release commit and publishes that tarball.
 
 ### Configurable duplicate syntax exemptions
 
