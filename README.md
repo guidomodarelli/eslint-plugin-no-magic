@@ -38,9 +38,10 @@ Development uses pnpm 12+ (pinned to 12.3.4) and Vitest 5.
 - [no-duplicate-strings](docs/rules/no-duplicate-strings.md): repeated static strings.
 - [prefer-existing-constant](docs/rules/prefer-existing-constant.md): visible string reuse.
 - [no-duplicate-constants](docs/rules/no-duplicate-constants.md): repeated primitive definitions.
+- [require-constants-location](docs/rules/require-constants-location.md): static constants outside constants modules.
 
 Each rule includes examples, defaults, options, and known limitations. ESLint
-`meta.docs.url` points to its page, and the package includes all four documents.
+`meta.docs.url` points to its page, and the package includes all five documents.
 
 ## Shared configuration
 
@@ -331,18 +332,43 @@ mode disables it. Control characters are escaped to prevent terminal injection.
 Terminal-specific ambiguous Unicode widths may differ. Editors and JSON formatters
 still receive ordinary text messages with standard ESLint source locations.
 
+## Create a version
+
+Changes are recorded under `## [Unreleased]` in `CHANGELOG.md`, grouped by Keep a
+Changelog sections (`### Added`, `### Changed`, `### Deprecated`, `### Removed`,
+`### Fixed`, `### Security`), in English ASCII. Never edit the version or the
+release date by hand.
+
+```bash
+pnpm create-version            # alias: pnpm cv
+pnpm create-version --dry-run  # diagnosis and plan only
+pnpm create-version --bump minor
+```
+
+The command comes from [`beez-rp`](https://github.com/guidomodarelli/beez-rp),
+shared by the Beez projects, and is configured in `beez-rp.config.js`. From a
+clean, synced `main` it asks Codex to fill an empty `[Unreleased]` block in English
+ASCII, lets you choose the next patch, minor or major version, releases
+`[Unreleased]` as `## [X.Y.Z] - YYYY-MM-DD`, commits `package.json` and
+`CHANGELOG.md` as `X.Y.Z` with the annotated `vX.Y.Z` tag, runs
+`pnpm release:prepare` on that commit, and pushes `main` plus the tag atomically.
+Feature branches, uncommitted files or foreign commits on `main` stop it with the
+next action to take, and running it again resumes a release left unpushed.
+Publishing the verified tarball stays manual.
+
 ## Prepare a local release
 
 ```bash
 pnpm release:prepare
 ```
 
-This checks the package version against the first changelog entry, enforces ASCII
-release notes, runs frozen installation/tests/types/lint, then verifies the tarball
-contains its declared exports and no unexpected private files. Output goes to
+This checks the package version against the newest released changelog entry
+(skipping `[Unreleased]`), enforces ASCII release notes, runs frozen
+installation/tests/types/lint, then verifies the tarball contains its declared
+exports and no unexpected private files. Output goes to
 `releases/<version>-<sha256>/` so previous artifacts are preserved. The directory
-is ignored by Git. It does not bump versions, change release dates, create commits
-or tags, or publish. Set the intended version and write its notes before running.
+is ignored by Git. It does not bump versions, create commits or tags, or publish:
+`pnpm create-version` runs it on the release commit; publish that tarball.
 
 ### Configurable duplicate syntax exemptions
 
@@ -398,6 +424,29 @@ candidates. Temporal availability, declaration preference, name exclusions, and
 shadowing remain unchanged. See [before/after results](benchmarks/CONSTANTS-RESULTS.md)
 for measurements and complete diagnostic-equivalence checks.
 
+### constants-refactor preset
+
+```js
+export default createConfig({
+  files: ["src/**/*.{js,ts,tsx}"],
+  preset: "constants-refactor",
+});
+```
+
+The preset applies one policy across rules, matching a "every static constant
+lives in `constants/`" refactor workflow:
+
+- `contracts.structuralDiscriminants` defaults to `["type", "kind", "operator"]`,
+  so comparisons such as `node.type === "Identifier"` are treated as language
+  vocabulary by contract, duplicate, and reuse rules. This also exempts
+  `action.type === "ADD_TODO"`; override the list where `type` carries contracts.
+- `constantsLocation` is enabled with `exportedOnly: false`, requiring every
+  static module-level constant to live under `**/constants/**`.
+
+Explicit settings always win: `contracts.structuralDiscriminants`, a
+`constantsLocation` object (merged over the preset defaults), or
+`constantsLocation: false`. Without `preset`, output is unchanged.
+
 ### Advisory rules through createConfig
 
 ```js
@@ -407,6 +456,9 @@ createConfig({
   constantDuplicates: { severity: "warn", ignoreValues: [100] },
 });
 ```
+
+`constantsLocation: { severity, patterns, exportedOnly, ignoreConstantNames }`
+enables `require-constants-location` the same way.
 
 Both advisory options default to `false`. `true` enables a rule with warning
 severity. An object enables it with options and an optional severity. Reuse

@@ -4,8 +4,10 @@ import plugin, {
   createConfig,
   type CreateConfigOptions,
   type NoDuplicateConstantsOptions,
+  type NoMagicContractsOptions,
   type NoDuplicateStringsOptions,
   type PreferExistingConstantOptions,
+  type RequireConstantsLocationOptions,
   type SinkDescriptor,
 } from "eslint-plugin-no-magic";
 import formatter, { createFormatter, type FormatterOptions } from "eslint-plugin-no-magic/formatter";
@@ -23,6 +25,13 @@ export const settings: CreateConfigOptions = {
 export const config: Linter.Config[] = createConfig(settings);
 export const eslintPlugin: ESLint.Plugin = plugin;
 export const rule: Rule.RuleModule = plugin.rules["prefer-existing-constant"];
+export const placementRule: Rule.RuleModule = plugin.rules["require-constants-location"];
+export const presetConfig: Linter.Config[] = createConfig({
+  preset: "constants-refactor",
+  contracts: { structuralDiscriminants: ["type"] },
+  constantsLocation: { severity: "error", patterns: ["src/constants/**"], exportedOnly: false, ignoreConstantNames: ["LOCAL"] },
+});
+export const placement: RequireConstantsLocationOptions = { patterns: ["**/constants/**"], exportedOnly: true };
 export const output: string = formatter([]);
 export const plain: string = createFormatter({ color: false, hyperlinks: false, unicode: false })([]);
 export const editor: FormatterOptions = { linkTarget: "vscode", hyperlinks: true };
@@ -57,6 +66,14 @@ export const syntax: NoDuplicateStringsOptions = { ignoreSyntax: { jsx: "false" 
 export const reuse: PreferExistingConstantOptions = { minDuplicates: 2 };
 // @ts-expect-error Ignored primitive values cannot contain objects.
 export const definitions: NoDuplicateConstantsOptions = { ignoreValues: [{}] };
+// @ts-expect-error Only documented presets are accepted.
+createConfig({ preset: "strict" });
+// @ts-expect-error Placement globs are strings.
+createConfig({ constantsLocation: { patterns: [1] } });
+// @ts-expect-error Placement does not accept duplicate value exclusions.
+createConfig({ constantsLocation: { ignoreValues: [1] } });
+// @ts-expect-error Structural discriminants are property names.
+export const discriminants: NoMagicContractsOptions = { structuralDiscriminants: "type" };
 // @ts-expect-error Color is an explicit boolean, not a string.
 createFormatter({ color: "always" });
 // @ts-expect-error Navigation targets are constrained.

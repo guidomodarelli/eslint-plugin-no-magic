@@ -13,7 +13,22 @@ export interface NoMagicContractsOptions {
   actionTypeCallees?: string[];
   actionTypeProperty?: string;
   ignoreStrings?: string[];
+  /** Property names whose compared values are structural discriminants (for example AST `type`), not contracts. Defaults to none. */
+  structuralDiscriminants?: string[];
 }
+
+/** Configures where static module-level constants must be declared. */
+export interface RequireConstantsLocationOptions {
+  /** Globs, relative to the ESLint working directory, of modules owning constants. Defaults to `["**\/constants/**"]`. */
+  patterns?: string[];
+  /** Report only exported constants. Defaults to true. */
+  exportedOnly?: boolean;
+  /** Exact, case-sensitive names excluded from diagnostics. */
+  ignoreConstantNames?: string[];
+}
+
+/** Configuration presets aligning several rules with one policy. */
+export type ConfigPreset = "constants-refactor";
 
 /** Configures duplicate detection independently from contract rules. */
 export interface NoDuplicateStringsOptions {
@@ -52,5 +67,9 @@ export interface CreateConfigOptions {
   reuse?: boolean | { severity?: Linter.Severity | Linter.StringSeverity; ignoreConstantNames?: string[] };
   /** Opt-in definition duplication; defaults to off, enabled severity defaults to warn. */
   constantDuplicates?: boolean | (NoDuplicateConstantsOptions & { severity?: Linter.Severity | Linter.StringSeverity });
+  /** Opt-in constants placement; defaults to off, enabled severity defaults to warn. */
+  constantsLocation?: boolean | (RequireConstantsLocationOptions & { severity?: Linter.Severity | Linter.StringSeverity });
+  /** Applies policy defaults; explicit options always take precedence. */
+  preset?: ConfigPreset;
 }
 

@@ -29,6 +29,7 @@ typeof input === "string";
 | `actionTypeCallees` | `["dispatch"]` | Bare or static member method names receiving action objects. |
 | `actionTypeProperty` | `"type"` | Static object property carrying the action contract. |
 | `ignoreStrings` | `[]` | Exact, case-sensitive values allowed in every contract context. |
+| `structuralDiscriminants` | `[]` | Static property names, such as AST `type`, whose equality comparisons and `switch` cases are structural vocabulary rather than contracts. |
 
 Default sinks: `track`, `trackEvent`, `sendEvent`, `logEvent`, `captureEvent`,
 `isFeatureEnabled`, `isEnabled`, `getFlag`, `navigate`; argument 0 of `getItem`,
@@ -54,6 +55,12 @@ Callee matching is syntactic: no type inference, import resolution, or alias
 tracking. A configured method name may belong to an unrelated receiver. No
 framework gets special treatment. `ignoreStrings` applies to known complete
 static values, not dynamic interpolated templates.
+
+`structuralDiscriminants` matches the property name only, through optional
+chains and TypeScript wrappers: with `["type"]`, `node.type === "Identifier"`
+and `action.type === "ADD_TODO"` are both exempt. Prefer narrow names, or omit
+`type` in code where it carries action or message contracts. Shared through
+`createConfig`, it also classifies duplicate and reuse rules.
 
 No automatic fix is offered: naming and extraction scope require domain context.
 For reuse suggestions see [prefer-existing-constant](prefer-existing-constant.md).

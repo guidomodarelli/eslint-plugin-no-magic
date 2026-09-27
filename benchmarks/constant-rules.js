@@ -9,21 +9,24 @@ import process from "node:process";
 import { URL } from "node:url";
 import { ESLint } from "eslint";
 import plugin from "../dist/index.js";
-
-/** Candidate counts intentionally vary independently of lexical depth. */
-const CANDIDATE_COUNTS = [100, 500, 1000];
-const SCOPE_DEPTH = 20;
-const WARMUPS = 2;
-const SAMPLES = 5;
-/** Public rule IDs used for configuration, statistics, and diagnostic assertions. */
-const REUSE_RULE = "no-magic/prefer-existing-constant";
-const DUPLICATE_RULE = "no-magic/no-duplicate-constants";
-const MODES = [
-  { name: "parser-only", rules: {} },
-  { name: "reuse", rules: { [REUSE_RULE]: "warn" } },
-  { name: "duplicates", rules: { [DUPLICATE_RULE]: "warn" } },
-  { name: "both", rules: { [REUSE_RULE]: "warn", [DUPLICATE_RULE]: "warn" } },
-];
+import { DUPLICATE_RULE, MEASURED_RUNS, PLUGIN_NAMESPACE, REUSE_RULE, WARMUP_RUNS } from "./constants/shared.js";
+import {
+  BASELINE_FLAG,
+  BASELINE_REPORT_PATH,
+  CANDIDATE_COUNTS,
+  COMPARE_FLAG,
+  LINTED_FILE_PATH,
+  MISS_SCENARIOS,
+  MODES,
+  NESTED_SCENARIO,
+  RESULTS_REPORT_PATH,
+  SAME_VALUE_SCENARIO,
+  SCENARIOS,
+  SCOPE_DEPTH,
+  SHADOWED_HIT_SCENARIO,
+  SHADOWED_MISS_SCENARIO,
+  WIDE_MISS_SCENARIO,
+} from "./constants/constants-benchmark.js";
 
 /**
  * Generates preceding const definitions and either matching or absent contract values.
@@ -34,16 +37,16 @@ const MODES = [
 function fixture(count, scenario) {
   const declarations = Array.from({ length: count }, (_, index) =>
     `const VALUE_${index} = "value_${index}"; const SHARED_${index} = "shared";`).join("\n");
-  const sharedValue = scenario === "same-value" || scenario === "shadowed-hit";
+  const sharedValue = scenario === SAME_VALUE_SCENARIO || scenario === SHADOWED_HIT_SCENARIO;
   const expressions = Array.from({ length: count }, (_, index) =>
-    `status === "${sharedValue ? "shared" : `${scenario === "wide-miss" ? "missing" : "value"}_${index}`}";`).join("\n");
-  if (scenario === "shadowed-hit" || scenario === "shadowed-miss") {
-    const parameterCount = scenario === "shadowed-hit" ? count - 1 : count;
+    `status === "${sharedValue ? "shared" : `${scenario === WIDE_MISS_SCENARIO ? "missing" : "value"}_${index}`}";`).join("\n");
+  if (scenario === SHADOWED_HIT_SCENARIO || scenario === SHADOWED_MISS_SCENARIO) {
+    const parameterCount = scenario === SHADOWED_HIT_SCENARIO ? count - 1 : count;
     const parameters = Array.from({ length: parameterCount }, (_, index) =>
-      `${scenario === "shadowed-hit" ? "SHARED" : "VALUE"}_${index}`).join(",");
+      `${scenario === SHADOWED_HIT_SCENARIO ? "SHARED" : "VALUE"}_${index}`).join(",");
     return `${declarations}\nconst lookup = (${parameters}) => { ${expressions} };`;
   }
-  return scenario === "nested" ? `${declarations}\n${"{ let local;".repeat(SCOPE_DEPTH)}\n${expressions}\n${"}".repeat(SCOPE_DEPTH)}`
+  return scenario === NESTED_SCENARIO ? `${declarations}\n${"{ let local;".repeat(SCOPE_DEPTH)}\n${expressions}\n${"}".repeat(SCOPE_DEPTH)}`
     : `${declarations}\n${expressions}`;
 }
 
@@ -58,10 +61,10 @@ function median(values) {
 
 const report = {
   measuredAt: new Date().toISOString(), node: process.version, eslint: ESLint.version,
-  os: platform(), cpu: cpus()[0]?.model, warmups: WARMUPS, samples: SAMPLES, scopeDepth: SCOPE_DEPTH,
+  os: platform(), cpu: cpus()[0]?.model, warmups: WARMUP_RUNS, samples: MEASURED_RUNS, scopeDepth: SCOPE_DEPTH,
   measurements: [],
 };
-for (const scenario of ["wide-hit", "wide-miss", "nested", "same-value", "shadowed-hit", "shadowed-miss"]) {
+for (const scenario of SCENARIOS) {
   for (const candidates of CANDIDATE_COUNTS) {
     const code = fixture(candidates, scenario);
     for (const mode of MODES) {
@@ -70,14 +73,14 @@ for (const scenario of ["wide-hit", "wide-miss", "nested", "same-value", "shadow
       const parseSamples = [];
       const reuseSamples = [];
       const duplicateSamples = [];
-      for (let run = 0; run < WARMUPS + SAMPLES; run++) {
+      for (let run = 0; run < WARMUP_RUNS + MEASURED_RUNS; run++) {
         const eslint = new ESLint({ overrideConfigFile: true, stats: true, overrideConfig: [{
-          plugins: { "no-magic": plugin }, rules: mode.rules,
+          plugins: { [PLUGIN_NAMESPACE]: plugin }, rules: mode.rules,
         }] });
         const started = performance.now();
-        const [result] = await eslint.lintText(code, { filePath: "benchmark.js" });
+        const [result] = await eslint.lintText(code, { filePath: LINTED_FILE_PATH });
         const elapsed = performance.now() - started;
-        const expectedReuse = mode.rules[REUSE_RULE] && !["wide-miss", "shadowed-miss"].includes(scenario) ? candidates : 0;
+        const expectedReuse = mode.rules[REUSE_RULE] && !MISS_SCENARIOS.includes(scenario) ? candidates : 0;
         const expectedDuplicates = mode.rules[DUPLICATE_RULE] ? candidates - 1 : 0;
         assert.equal(result.fatalErrorCount, 0);
         assert.equal(result.messages.filter((message) => message.ruleId === REUSE_RULE).length, expectedReuse);
@@ -87,7 +90,7 @@ for (const scenario of ["wide-hit", "wide-miss", "nested", "same-value", "shadow
         if (diagnosticsHash) assert.equal(currentHash, diagnosticsHash, "Diagnostics must be deterministic across samples");
         diagnosticsHash = currentHash;
         const timing = result.stats.times.passes[0];
-        if (run >= WARMUPS) {
+        if (run >= WARMUP_RUNS) {
           elapsedSamples.push(elapsed);
           parseSamples.push(timing.parse.total);
           reuseSamples.push(timing.rules?.[REUSE_RULE]?.total ?? 0);
@@ -101,8 +104,8 @@ for (const scenario of ["wide-hit", "wide-miss", "nested", "same-value", "shadow
     }
   }
 }
-if (process.argv.includes("--compare")) {
-  const baseline = JSON.parse(readFileSync(new URL("./constants-before.json", import.meta.url), "utf8"));
+if (process.argv.includes(COMPARE_FLAG)) {
+  const baseline = JSON.parse(readFileSync(new URL(BASELINE_REPORT_PATH, import.meta.url), "utf8"));
   assert.equal(report.measurements.length, baseline.measurements.length);
   for (const measurement of report.measurements) {
     const previous = baseline.measurements.find((item) => item.scenario === measurement.scenario &&
@@ -111,5 +114,5 @@ if (process.argv.includes("--compare")) {
     assert.equal(measurement.diagnosticsHash, previous.diagnosticsHash, "Optimization must preserve complete diagnostics");
   }
 }
-const destination = process.argv.includes("--baseline") ? "./constants-before.json" : "./constants-results.json";
+const destination = process.argv.includes(BASELINE_FLAG) ? BASELINE_REPORT_PATH : RESULTS_REPORT_PATH;
 writeFileSync(new URL(destination, import.meta.url), JSON.stringify(report, null, 2) + "\n");

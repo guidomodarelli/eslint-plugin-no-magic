@@ -20,61 +20,29 @@ type NormalizedOptions = ReturnType<typeof normalizeOptions>;
 type Node = TSESTree.Node;
 
 import { createVisibleConstantLookup } from "./visible-constants.js";
-
-const TYPEOF_RESULT_LITERALS = new Set([
-  "bigint",
-  "boolean",
-  "function",
-  "number",
-  "object",
-  "string",
-  "symbol",
-  "undefined",
-]);
-const EQUALITY_OPERATORS = new Set(["===", "!==", "==", "!="]);
-const SVG_ELEMENT_NAMES = new Set([
-  "circle",
-  "clipPath",
-  "defs",
-  "ellipse",
-  "g",
-  "line",
-  "linearGradient",
-  "path",
-  "polygon",
-  "polyline",
-  "rect",
-  "stop",
-  "svg",
-  "text",
-  "textPath",
-  "title",
-  "tspan",
-]);
-
-/** Default contract calls; routing requires an explicit receiver. */
-const DEFAULT_SINK_CALLEES = [
-  "track",
-  "trackEvent",
-  "sendEvent",
-  "logEvent",
-  "captureEvent",
-  { callee: "getItem", argumentIndex: 0 },
-  { callee: "setItem", argumentIndex: 0 },
-  { callee: "removeItem", argumentIndex: 0 },
-  "isFeatureEnabled",
-  "isEnabled",
-  "getFlag",
-  "navigate",
-  { callee: "router.push", argumentIndex: 0 },
-  { callee: "router.replace", argumentIndex: 0 },
-];
-const DEFAULT_ACTION_TYPE_CALLEES = ["dispatch"];
-const DEFAULT_ACTION_TYPE_PROPERTY = "type";
-const DEFAULT_MIN_DUPLICATES = 3;
-const SINGLE_CHARACTER_LENGTH = 1;
-/** Maximum literal preview length in diagnostic messages. */
-const DIAGNOSTIC_PREVIEW_LENGTH = 80;
+import {
+  CONTRACT_REASONS,
+  DEFAULT_ACTION_TYPE_CALLEES,
+  DEFAULT_ACTION_TYPE_PROPERTY,
+  DEFAULT_IGNORE_SYNTAX,
+  DEFAULT_MIN_DUPLICATES,
+  DEFAULT_SINK_CALLEES,
+  DETECTIONS,
+  DIAGNOSTIC_PREVIEW_LENGTH,
+  EQUALITY_OPERATORS,
+  FEATURE_FLAG_CALLEES,
+  IGNORE_CONTRACTS_SCHEMA,
+  IGNORE_SYNTAX_SCHEMA,
+  NAVIGATION_CALLEES,
+  RULE_OPTION_PROPERTIES,
+  SINGLE_CHARACTER_LENGTH,
+  STORAGE_CALLEES,
+  STRING_MESSAGE_IDS,
+  SVG_ELEMENT_NAMES,
+  SVG_ROOT_ELEMENT_NAME,
+  TYPEOF_RESULT_LITERALS,
+} from "../constants/string-analysis/index.js";
+import { IGNORE_CONSTANT_NAMES_SCHEMA } from "../constants/shared-rule-meta.js";
 
 /**
  * Returns the AST parent, or null at the root.
@@ -216,7 +184,7 @@ function isSvgElementName(nameNode: Node | undefined) {
  * @returns The derived value or context match.
  */
 function isSvgRootElementName(nameNode: Node | undefined) {
-  return nameNode?.type === "JSXIdentifier" && nameNode.name === "svg";
+  return nameNode?.type === "JSXIdentifier" && nameNode.name === SVG_ROOT_ELEMENT_NAME;
 }
 
 /**
@@ -341,6 +309,33 @@ function isTypeofComparisonLiteral(node: Node, value: string) {
     (parent.left?.type === "UnaryExpression" && parent.left.operator === "typeof") ||
     (parent.right?.type === "UnaryExpression" && parent.right.operator === "typeof")
   );
+}
+
+/**
+ * Recognizes static reads of configured structural properties, including optional chains.
+ * @param node - Compared expression.
+ * @param discriminants - Structural property names.
+ * @returns Whether the expression reads a structural discriminant.
+ */
+function isStructuralDiscriminantAccess(node: Node | null | undefined, discriminants: ReadonlySet<string>) {
+  while (node && (isTransparentExpression(node) || node.type === "ChainExpression")) node = node.expression;
+  return node?.type === "MemberExpression" && discriminants.has(getStaticPropertyName(node.property, node.computed) ?? "");
+}
+
+/**
+ * Recognizes values compared or switched against structural vocabulary, such as `node.type`.
+ * @param node - Runtime expression after wrappers and value branches.
+ * @param discriminants - Structural property names; empty disables the exemption.
+ * @returns Whether the string names structure rather than a contract.
+ */
+function isStructuralDiscriminantValue(node: Node, discriminants: ReadonlySet<string>) {
+  if (!discriminants.size) return false;
+  const parent = getParent(node);
+  if (parent?.type === "BinaryExpression" && EQUALITY_OPERATORS.has(parent.operator)) {
+    return isStructuralDiscriminantAccess(parent.left === node ? parent.right : parent.left, discriminants);
+  }
+  return parent?.type === "SwitchCase" && parent.test === node &&
+    parent.parent.type === "SwitchStatement" && isStructuralDiscriminantAccess(parent.parent.discriminant, discriminants);
 }
 
 /**
@@ -499,7 +494,7 @@ function getCalleePath(node: Node): string | null {
  * @param sinkCallees - Configured sink names or descriptors.
  * @returns Whether the argument is a configured contract.
  */
-function isKnownSinkArgument(node: Node, sinkCallees: Array<string | SinkDescriptor>) {
+function isKnownSinkArgument(node: Node, sinkCallees: ReadonlyArray<string | SinkDescriptor>) {
   const parent = getParent(node);
   if (parent?.type !== "CallExpression") return false;
   const argumentIndex = parent.arguments.findIndex((argument) => argument === node);
@@ -566,7 +561,7 @@ function normalizeOptions(rawOptions: StringRuleOptions = {}) {
 
   return {
     sinks,
-    ignoreSyntax: { jsx: true, svg: true, constDefinitions: true, ...rawOptions.ignoreSyntax },
+    ignoreSyntax: { ...DEFAULT_IGNORE_SYNTAX, ...rawOptions.ignoreSyntax },
     actionTypeCallees: new Set(actionTypeCallees),
     actionTypeProperty: rawOptions.actionTypeProperty ?? DEFAULT_ACTION_TYPE_PROPERTY,
     minDuplicates:
@@ -575,6 +570,9 @@ function normalizeOptions(rawOptions: StringRuleOptions = {}) {
         : DEFAULT_MIN_DUPLICATES,
     ignoreStrings: new Set(
       Array.isArray(rawOptions.ignoreStrings) ? rawOptions.ignoreStrings : []
+    ),
+    structuralDiscriminants: new Set(
+      Array.isArray(rawOptions.structuralDiscriminants) ? rawOptions.structuralDiscriminants : []
     ),
   };
 }
@@ -634,53 +632,17 @@ function isSuspiciousContext(node: Node, options: NormalizedOptions) {
  */
 function getContractReason(node: Node, options: NormalizedOptions): string | null {
   node = getContextNode(node);
-  if (isEqualityComparisonOperand(node)) return "comparison value";
-  if (isSwitchCaseTest(node)) return "switch case value";
-  if (isActionTypeProperty(node, options.actionTypeCallees, options.actionTypeProperty)) return "action type";
+  if (isEqualityComparisonOperand(node)) return CONTRACT_REASONS.comparison;
+  if (isSwitchCaseTest(node)) return CONTRACT_REASONS.switchCase;
+  if (isActionTypeProperty(node, options.actionTypeCallees, options.actionTypeProperty)) return CONTRACT_REASONS.actionType;
   if (!isKnownSinkArgument(node, options.sinks)) return null;
   const parent = getParent(node);
   const callee = parent?.type === "CallExpression" ? getCalleeName(parent.callee) : null;
-  if (["getItem", "setItem", "removeItem"].includes(callee ?? "")) return "storage key";
-  if (["push", "replace", "navigate"].includes(callee ?? "")) return "navigation argument";
-  if (["getFlag", "isFeatureEnabled", "isEnabled"].includes(callee ?? "")) return "feature flag identifier";
-  return "configured call argument";
+  if (STORAGE_CALLEES.includes(callee ?? "")) return CONTRACT_REASONS.storageKey;
+  if (NAVIGATION_CALLEES.includes(callee ?? "")) return CONTRACT_REASONS.navigation;
+  if (FEATURE_FLAG_CALLEES.includes(callee ?? "")) return CONTRACT_REASONS.featureFlag;
+  return CONTRACT_REASONS.configuredCall;
 }
-
-/** Shared schema properties are narrowed for each public rule. */
-const RULE_OPTION_PROPERTIES: Record<string, JSONSchema.JSONSchema4> = {
-          sinks: {
-            type: "array",
-            items: {
-              anyOf: [
-                { type: "string" },
-                {
-                  type: "object",
-                  properties: {
-                    callee: { type: "string", minLength: 1 },
-                    argumentIndex: { type: "integer", minimum: 0 },
-                  },
-                  required: ["callee", "argumentIndex"],
-                  additionalProperties: false,
-                },
-              ],
-            },
-          },
-          actionTypeCallees: {
-            type: "array",
-            items: { type: "string" },
-          },
-          actionTypeProperty: {
-            type: "string",
-          },
-          minDuplicates: {
-            type: "integer",
-            minimum: 0,
-          },
-          ignoreStrings: {
-            type: "array",
-            items: { type: "string" },
-          },
-        };
 
 /** Defines schema, diagnostics, and per-file string analysis for ESLint. */
 const stringAnalysis: {
@@ -701,10 +663,10 @@ const stringAnalysis: {
       },
     ],
     messages: {
-      existingConstant: "Consider using visible constant {{name}} instead of repeating this contract value; verify that they have the same meaning.",
-      noMagicString:
+      [STRING_MESSAGE_IDS.existingConstant]: "Consider using visible constant {{name}} instead of repeating this contract value; verify that they have the same meaning.",
+      [STRING_MESSAGE_IDS.noMagicString]:
         "Extract this {{reason}} into a named constant or configuration value.",
-      duplicateString:
+      [STRING_MESSAGE_IDS.duplicateString]:
         'String {{value}} is repeated {{count}} times. First occurrence: {{firstLocation}}. Extract a named constant.',
     },
   },
@@ -716,14 +678,14 @@ const stringAnalysis: {
    */
   create(context, detection) {
     const options = normalizeOptions(context.options[0]);
-    const reportContracts = detection === "contracts";
-    if (detection !== "duplicates") options.minDuplicates = 0;
-    const findVisibleConstant = detection === "reuse"
+    const reportContracts = detection === DETECTIONS.contracts;
+    if (detection !== DETECTIONS.duplicates) options.minDuplicates = 0;
+    const findVisibleConstant = detection === DETECTIONS.reuse
       ? createVisibleConstantLookup(context.sourceCode, new Set(context.options[0]?.ignoreConstantNames ?? []))
       : null;
     const duplicateCandidates = new Map<string, Node[]>();
     const reportedNodes = new Set<Node>();
-    const ignoreContracts = detection === "duplicates" && context.options[0]?.ignoreContracts !== false;
+    const ignoreContracts = detection === DETECTIONS.duplicates && context.options[0]?.ignoreContracts !== false;
     const duplicateContractOptions = normalizeOptions(context.options[0]?.contractOptions);
 
     /**
@@ -753,17 +715,19 @@ const stringAnalysis: {
       if (!value || options.ignoreStrings.has(value)) return;
       const contextNode = getContextNode(node);
       if (isDirectiveLiteral(node) || isTypeofComparisonLiteral(contextNode, value)) return;
+      const classification = detection === DETECTIONS.duplicates ? duplicateContractOptions : options;
+      if (isStructuralDiscriminantValue(contextNode, classification.structuralDiscriminants)) return;
 
-      const suspicious = isSuspiciousContext(node, detection === "duplicates" ? duplicateContractOptions : options);
+      const suspicious = isSuspiciousContext(node, classification);
       if (!suspicious && isAllowlistedPosition(node, options.ignoreSyntax)) return;
 
-      if (detection === "reuse") {
+      if (detection === DETECTIONS.reuse) {
         const name = suspicious ? findVisibleConstant!(node, value) : null;
-        if (name) context.report({ node, messageId: "existingConstant", data: { name } });
+        if (name) context.report({ node, messageId: STRING_MESSAGE_IDS.existingConstant, data: { name } });
         return;
       }
       if (suspicious && reportContracts) {
-        context.report({ node, messageId: "noMagicString", data: { reason: getContractReason(node, options) } });
+        context.report({ node, messageId: STRING_MESSAGE_IDS.noMagicString, data: { reason: getContractReason(node, options) } });
         reportedNodes.add(node);
       }
       if (ignoreContracts && suspicious && !duplicateContractOptions.ignoreStrings.has(value)) {
@@ -805,8 +769,9 @@ const stringAnalysis: {
           return;
         }
 
-        if (reportContracts && isSuspiciousContext(node, options)) {
-          context.report({ node, messageId: "noMagicString", data: { reason: getContractReason(node, options) } });
+        if (reportContracts && !isStructuralDiscriminantValue(getContextNode(node), options.structuralDiscriminants) &&
+          isSuspiciousContext(node, options)) {
+          context.report({ node, messageId: STRING_MESSAGE_IDS.noMagicString, data: { reason: getContractReason(node, options) } });
         }
       },
       /**
@@ -827,7 +792,7 @@ const stringAnalysis: {
             if (reportedNodes.has(node)) continue;
             context.report({
               node,
-              messageId: "duplicateString",
+              messageId: STRING_MESSAGE_IDS.duplicateString,
               data: { value: JSON.stringify(value.length > DIAGNOSTIC_PREVIEW_LENGTH ? `${value.slice(0, DIAGNOSTIC_PREVIEW_LENGTH)}...` : value), count: String(nodes.length), firstLocation: `${nodes[0].loc.start.line}:${nodes[0].loc.start.column + 1}` },
             });
           }
@@ -844,30 +809,25 @@ const stringAnalysis: {
  */
 export function createFocusedStringRule(detection: Detection): TSESLint.RuleModule<MessageIds, [StringRuleOptions?]> {
   const properties: Record<string, JSONSchema.JSONSchema4> = { ...RULE_OPTION_PROPERTIES };
-  if (detection !== "duplicates") delete properties.minDuplicates;
-  if (detection === "reuse") properties.ignoreConstantNames = {
-    type: "array", items: { type: "string" }, uniqueItems: true,
-  };
-  if (detection === "duplicates") {
+  if (detection !== DETECTIONS.duplicates) delete properties.minDuplicates;
+  if (detection === DETECTIONS.reuse) properties.ignoreConstantNames = IGNORE_CONSTANT_NAMES_SCHEMA;
+  if (detection === DETECTIONS.duplicates) {
     const contractProperties = { ...properties };
     delete contractProperties.minDuplicates;
-    properties.ignoreSyntax = {
-      type: "object",
-      properties: { jsx: { type: "boolean" }, svg: { type: "boolean" }, constDefinitions: { type: "boolean" } },
-      additionalProperties: false,
-    };
-    properties.ignoreContracts = { type: "boolean" };
+    properties.ignoreSyntax = IGNORE_SYNTAX_SCHEMA;
+    properties.ignoreContracts = IGNORE_CONTRACTS_SCHEMA;
     properties.contractOptions = {
       type: "object", properties: contractProperties, additionalProperties: false,
     };
     delete properties.sinks;
     delete properties.actionTypeCallees;
     delete properties.actionTypeProperty;
+    delete properties.structuralDiscriminants;
   }
   return {
     meta: {
       ...stringAnalysis.meta,
-      docs: { description: detection === "reuse" ? "Suggest reusing a visible constant for inline string contracts" : detection === "contracts"
+      docs: { description: detection === DETECTIONS.reuse ? "Suggest reusing a visible constant for inline string contracts" : detection === DETECTIONS.contracts
         ? "Disallow unnamed string contracts in runtime logic"
         : "Disallow repeated string values in non-structural positions" },
       schema: [{ type: "object", properties, additionalProperties: false }],

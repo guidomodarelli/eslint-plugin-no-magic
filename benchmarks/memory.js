@@ -8,13 +8,18 @@ import process from "node:process";
 import { fileURLToPath, URL } from "node:url";
 import { ESLint } from "eslint";
 import plugin from "../dist/index.js";
-
-/** Each file stresses multiple scope indexes, repeated definitions, and unique values. */
-const SCOPES_PER_FILE = 8;
-const VALUES_PER_SCOPE = 25;
-const WARMUP_FILES = 5;
-const FILE_BATCHES = [25, 25, 50];
-const MODES = ["parser-only", "reuse", "both"];
+import { DUPLICATE_RULE, PARSER_ONLY_MODE, PLUGIN_NAMESPACE, REUSE_RULE } from "./constants/shared.js";
+import {
+  BOTH_RULES_MODE,
+  EXPOSE_GC_FLAG,
+  FILE_BATCHES,
+  MODE_FLAG,
+  MODES,
+  RESULTS_REPORT_PATH,
+  SCOPES_PER_FILE,
+  VALUES_PER_SCOPE,
+  WARMUP_FILES,
+} from "./constants/memory-benchmark.js";
 
 /**
  * Generates distinct file values so caches cannot benefit from repeated inputs.
@@ -48,20 +53,20 @@ function collectedMemory() {
  */
 async function lintFile(eslint, fileIndex, mode) {
   const [result] = await eslint.lintText(source(fileIndex), { filePath: `memory-${fileIndex}.js` });
-  const reuseCount = mode === "parser-only" ? 0 : SCOPES_PER_FILE * VALUES_PER_SCOPE;
-  const duplicateCount = mode === "both" ? SCOPES_PER_FILE * (VALUES_PER_SCOPE - 1) : 0;
+  const reuseCount = mode === PARSER_ONLY_MODE ? 0 : SCOPES_PER_FILE * VALUES_PER_SCOPE;
+  const duplicateCount = mode === BOTH_RULES_MODE ? SCOPES_PER_FILE * (VALUES_PER_SCOPE - 1) : 0;
   assert.equal(result.fatalErrorCount, 0);
   assert.equal(result.messages.length, reuseCount + duplicateCount);
   return process.memoryUsage().heapUsed;
 }
 
-const mode = process.argv[process.argv.indexOf("--mode") + 1];
-if (process.argv.includes("--mode")) {
+const mode = process.argv[process.argv.indexOf(MODE_FLAG) + 1];
+if (process.argv.includes(MODE_FLAG)) {
   assert.ok(MODES.includes(mode), "Unknown memory profile");
   assert.equal(typeof globalThis.gc, "function", "Worker requires --expose-gc");
-  const rules = mode === "parser-only" ? {} : { "no-magic/prefer-existing-constant": "warn",
-    ...(mode === "both" ? { "no-magic/no-duplicate-constants": "warn" } : {}) };
-  const eslint = new ESLint({ overrideConfigFile: true, overrideConfig: [{ plugins: { "no-magic": plugin }, rules }] });
+  const rules = mode === PARSER_ONLY_MODE ? {} : { [REUSE_RULE]: "warn",
+    ...(mode === BOTH_RULES_MODE ? { [DUPLICATE_RULE]: "warn" } : {}) };
+  const eslint = new ESLint({ overrideConfigFile: true, overrideConfig: [{ plugins: { [PLUGIN_NAMESPACE]: plugin }, rules }] });
   for (let index = 0; index < WARMUP_FILES; index++) await lintFile(eslint, -index - 1, mode);
   const baseline = collectedMemory();
   let sampledPeak = baseline.heapUsed;
@@ -75,10 +80,10 @@ if (process.argv.includes("--mode")) {
   process.stdout.write(JSON.stringify({ mode, baseline, measurements }));
 } else {
   const results = MODES.map((profile) => JSON.parse(execFileSync(process.execPath,
-    ["--expose-gc", fileURLToPath(import.meta.url), "--mode", profile], { encoding: "utf8" })));
+    [EXPOSE_GC_FLAG, fileURLToPath(import.meta.url), MODE_FLAG, profile], { encoding: "utf8" })));
   const report = { measuredAt: new Date().toISOString(), node: process.version, eslint: ESLint.version,
     os: platform(), cpu: cpus()[0]?.model, scopesPerFile: SCOPES_PER_FILE, valuesPerScope: VALUES_PER_SCOPE,
     warmupFiles: WARMUP_FILES, batches: FILE_BATCHES, results };
-  writeFileSync(new URL("./memory-results.json", import.meta.url), JSON.stringify(report, null, 2) + "\n");
+  writeFileSync(new URL(RESULTS_REPORT_PATH, import.meta.url), JSON.stringify(report, null, 2) + "\n");
   console.log(JSON.stringify(report, null, 2));
 }

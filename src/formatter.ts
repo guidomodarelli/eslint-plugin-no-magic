@@ -15,13 +15,34 @@ export interface FormatterOptions {
 import process from "node:process";
 import { isAbsolute } from "node:path";
 import { pathToFileURL } from "node:url";
+import {
+  COLORS,
+  CONTROL_CHARACTER_PATTERN,
+  ENVIRONMENT_VARIABLES,
+  ERROR_SEVERITY_LEVEL,
+  EXCERPT_WIDTH,
+  FILE_LINK_TARGET,
+  FILE_URL_LINE_FRAGMENT,
+  FORCE_COLOR_DISABLED,
+  GLYPHS,
+  GRAPHEME_SEGMENTER_LOCALE,
+  GRAPHEME_SEGMENTER_OPTIONS,
+  HYPERLINK_OPEN,
+  HYPERLINK_TERMINAL_PROGRAMS,
+  HYPERLINK_TERMINATOR,
+  LINE_BREAK_PATTERN,
+  LINK_TARGETS,
+  PARSE_ERROR_RULE_ID,
+  PICTOGRAPHIC_PATTERN,
+  SUMMARY_SEPARATORS,
+  VSCODE_FILE_URL_PREFIX,
+  VSCODE_LINK_TARGET,
+  WIDE_CODE_POINT_RANGES,
+  WIDE_GRAPHEME_COLUMNS,
+} from "./constants/formatter.js";
 
-/** Semantic ANSI styles used only when color output is enabled. */
-const COLORS = { error: "\u001b[31;1m", warning: "\u001b[33;1m", detail: "\u001b[36m", reset: "\u001b[0m" };
-/** Bounds the source excerpt so generated lines cannot flood the terminal. */
-const EXCERPT_WIDTH = 100;
-/** Segments grapheme clusters to keep emoji and combining marks aligned. */
-const SEGMENTER = new Intl.Segmenter("en", { granularity: "grapheme" });
+/** Segments grapheme clusters to keep emoji and combining marks aligned; created once per process. */
+const SEGMENTER = new Intl.Segmenter(GRAPHEME_SEGMENTER_LOCALE, GRAPHEME_SEGMENTER_OPTIONS);
 
 /**
  * Escapes control characters before writing untrusted filenames, messages, or source.
@@ -29,9 +50,7 @@ const SEGMENTER = new Intl.Segmenter("en", { granularity: "grapheme" });
  * @returns Printable single-line representation.
  */
 function printable(value: string): string {
-  // Control characters must be matched explicitly to prevent terminal escape injection.
-  // eslint-disable-next-line no-control-regex
-  return String(value).replace(/[\u0000-\u001f\u007f-\u009f]/gu, (character) =>
+  return String(value).replace(CONTROL_CHARACTER_PATTERN, (character) =>
     character === "\t" ? "  " : `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`);
 }
 
@@ -44,10 +63,8 @@ function columns(value: string): number {
   let width = 0;
   for (const { segment } of SEGMENTER.segment(value)) {
     const code = segment.codePointAt(0)!;
-    width += /\p{Extended_Pictographic}/u.test(segment) ||
-      (code >= 0x1100 && (code <= 0x115f || (code >= 0x2e80 && code <= 0xa4cf) ||
-        (code >= 0xac00 && code <= 0xd7af) || (code >= 0xf900 && code <= 0xfaff) ||
-        (code >= 0xff01 && code <= 0xff60))) ? 2 : 1;
+    width += PICTOGRAPHIC_PATTERN.test(segment) ||
+      WIDE_CODE_POINT_RANGES.some(([start, end]) => code >= start && code <= end) ? WIDE_GRAPHEME_COLUMNS : 1;
   }
   return width;
 }
@@ -57,20 +74,21 @@ function columns(value: string): number {
  * @param options - Color, Unicode, hyperlink detection, and file/editor link target.
  * @returns Standard ESLint formatter accepting lint results.
  */
-export function createFormatter({ color, unicode = true, hyperlinks, linkTarget = "file" }: FormatterOptions = {}) {
-  if (!["file", "vscode"].includes(linkTarget)) throw new TypeError("formatter: linkTarget must be file or vscode");
+export function createFormatter({ color, unicode = true, hyperlinks, linkTarget = FILE_LINK_TARGET }: FormatterOptions = {}) {
+  if (!LINK_TARGETS.includes(linkTarget)) throw new TypeError("formatter: linkTarget must be file or vscode");
   /**
    * Formats file diagnostics, source spans, and a compact severity summary.
    * @param results - ESLint lint results, optionally including source text.
    * @returns Terminal output; empty when no diagnostics exist.
    */
   return function format(results: ESLint.LintResult[]): string {
-    const colored = color ?? (process.env.NO_COLOR === undefined &&
-      (process.env.FORCE_COLOR !== undefined ? process.env.FORCE_COLOR !== "0" : Boolean(process.stdout.isTTY)));
-    const linked = hyperlinks ?? (Boolean(process.stdout.isTTY) && !process.env.CI &&
-      (Boolean(process.env.WT_SESSION) || ["vscode", "iTerm.app", "WezTerm", "ghostty"].includes(process.env.TERM_PROGRAM ?? "")));
-    const glyphs = unicode ? { top: "╭─", bar: "│", bottom: "╰─", error: "✖", warning: "▲", caret: "━" }
-      : { top: "+-", bar: "|", bottom: "+-", error: "x", warning: "!", caret: "^" };
+    const forceColor = process.env[ENVIRONMENT_VARIABLES.forceColor];
+    const colored = color ?? (process.env[ENVIRONMENT_VARIABLES.noColor] === undefined &&
+      (forceColor !== undefined ? forceColor !== FORCE_COLOR_DISABLED : Boolean(process.stdout.isTTY)));
+    const linked = hyperlinks ?? (Boolean(process.stdout.isTTY) && !process.env[ENVIRONMENT_VARIABLES.continuousIntegration] &&
+      (Boolean(process.env[ENVIRONMENT_VARIABLES.windowsTerminalSession]) ||
+        HYPERLINK_TERMINAL_PROGRAMS.includes(process.env[ENVIRONMENT_VARIABLES.terminalProgram] ?? "")));
+    const glyphs = unicode ? GLYPHS.unicode : GLYPHS.ascii;
     const lines: string[] = [];
     let errors = 0;
     let warnings = 0;
@@ -84,9 +102,9 @@ export function createFormatter({ color, unicode = true, hyperlinks, linkTarget 
     for (const result of results) {
       if (!result.messages.length) continue;
       lines.push(paint(`${glyphs.top} ${printable(result.filePath)}`, "detail"));
-      const sourceLines = typeof result.source === "string" ? result.source.split(/\r?\n/u) : [];
+      const sourceLines = typeof result.source === "string" ? result.source.split(LINE_BREAK_PATTERN) : [];
       for (const message of result.messages) {
-        const isError = message.fatal || message.severity === 2;
+        const isError = message.fatal || message.severity === ERROR_SEVERITY_LEVEL;
         if (isError) errors++; else warnings++;
         const tone = isError ? "error" : "warning";
         const line = Number.isInteger(message.line) && message.line > 0 ? message.line : 1;
@@ -94,13 +112,13 @@ export function createFormatter({ color, unicode = true, hyperlinks, linkTarget 
         let location = `${line}:${column}`;
         if (linked && typeof result.filePath === "string" && isAbsolute(result.filePath)) {
           const fileUrl = pathToFileURL(result.filePath);
-          const target = linkTarget === "vscode"
-            ? `vscode://file${fileUrl.pathname}:${line}:${column}`
-            : `${fileUrl.href}#L${line}:${column}`;
+          const target = linkTarget === VSCODE_LINK_TARGET
+            ? `${VSCODE_FILE_URL_PREFIX}${fileUrl.pathname}:${line}:${column}`
+            : `${fileUrl.href}${FILE_URL_LINE_FRAGMENT}${line}:${column}`;
           const label = printable(`${result.filePath}:${line}:${column}`);
-          location = `\u001b]8;;${target}\u001b\\${label}\u001b]8;;\u001b\\`;
+          location = `${HYPERLINK_OPEN}${target}${HYPERLINK_TERMINATOR}${label}${HYPERLINK_OPEN}${HYPERLINK_TERMINATOR}`;
         }
-        lines.push(`${glyphs.bar} ${paint(`${isError ? glyphs.error : glyphs.warning} ${isError ? "ERROR" : "WARNING"}`, tone)} ${location}  ${printable(message.ruleId ?? "parse-error")}`);
+        lines.push(`${glyphs.bar} ${paint(`${isError ? glyphs.error : glyphs.warning} ${isError ? "ERROR" : "WARNING"}`, tone)} ${location}  ${printable(message.ruleId ?? PARSE_ERROR_RULE_ID)}`);
         lines.push(`${glyphs.bar} ${printable(message.message)}`);
         const source = sourceLines[(message.line ?? 1) - 1];
         if (source !== undefined) {
@@ -123,7 +141,7 @@ export function createFormatter({ color, unicode = true, hyperlinks, linkTarget 
       lines.push(`${glyphs.bottom} ${result.messages.length} diagnostic${result.messages.length === 1 ? "" : "s"}`, "");
     }
     if (!lines.length) return "";
-    lines.push(`${errors} error${errors === 1 ? "" : "s"} · ${warnings} warning${warnings === 1 ? "" : "s"}`.replace(" · ", unicode ? " · " : " | "));
+    lines.push(`${errors} error${errors === 1 ? "" : "s"}${unicode ? SUMMARY_SEPARATORS.unicode : SUMMARY_SEPARATORS.ascii}${warnings} warning${warnings === 1 ? "" : "s"}`);
     return lines.join("\n") + "\n";
   };
 }
