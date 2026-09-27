@@ -30,9 +30,10 @@ mkdirSync(releases, { recursive: true });
 const staging = mkdtempSync(join(releases, STAGING_DIRECTORY_PREFIX));
 try {
   // Only the generated alphanumeric basename enters this command, never user input.
-  execSync(`pnpm --ignore-scripts pack --pack-destination ${RELEASES_DIRECTORY}/${basename(staging)}`, { cwd: root, stdio: "inherit" });
+  // npm packs reproducibly, so beez-rp can compare this archive with `npm pack --dry-run` byte for byte.
+  execSync(`npm pack --ignore-scripts --pack-destination ${RELEASES_DIRECTORY}/${basename(staging)}`, { cwd: root, stdio: "inherit" });
   const archive = readdirSync(staging).find((entry) => entry.endsWith(ARCHIVE_EXTENSION));
-  if (!archive) throw new Error("release: pnpm pack did not produce an archive");
+  if (!archive) throw new Error("release: npm pack did not produce an archive");
   const archivePath = join(staging, archive);
   const entries = execFileSync("tar", ["-tf", archivePath], { encoding: "utf8" }).trim().split(LINE_BREAK_PATTERN);
   validatePackageContents(metadata, entries);

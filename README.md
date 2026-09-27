@@ -223,10 +223,11 @@ printed. The repository has no `.npmrc`: [`beez-rp`](https://github.com/guidomod
 writes a temporary npm user config outside the repository that only references
 `${NPM_TOKEN}` (npm expands it from the environment, so the token never reaches
 the disk or a command line), passes it with `--userconfig` and removes it
-afterwards. Before publishing, it verifies the SHA-256 in the
-`releases/<version>-<sha256>/` path and the archive contents (safe paths, no
-private or undeclared files, every public entrypoint, same name and version),
-then publishes that exact tarball. npm inherits the terminal, so its interactive
+afterwards. Before publishing, it requires the release commit to stay unmodified,
+checks the SHA-256 in the `releases/<version>-<sha256>/` path, and compares the
+tarball SHA-512 with the `integrity` of `npm pack --dry-run` for that commit;
+`npm pack` is reproducible, so a match proves the archive is byte for byte what
+npm would pack. Only then it publishes that exact tarball. npm inherits the terminal, so its interactive
 browser or one-time-password confirmation still works.
 
 ## License
@@ -359,8 +360,9 @@ pnpm release:prepare
 
 This checks the package version against the newest released changelog entry
 (skipping `[Unreleased]`), enforces ASCII release notes, runs frozen
-installation/tests/types/lint, then verifies the tarball contains its declared
-exports and no unexpected private files. Output goes to
+installation/tests/types/lint, packs with `npm pack --ignore-scripts` (npm, not
+pnpm, so the archive is reproducible), then verifies the tarball contains its
+declared exports and no unexpected private files. Output goes to
 `releases/<version>-<sha256>/` so previous artifacts are preserved. The directory
 is ignored by Git. It does not bump versions, create commits or tags, or publish:
 `pnpm create-version` runs it on the release commit and publishes that tarball.
