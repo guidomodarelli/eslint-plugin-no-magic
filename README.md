@@ -227,7 +227,9 @@ afterwards. Before publishing, it requires the release commit to stay unmodified
 checks the SHA-256 in the `releases/<version>-<sha256>/` path, and compares the
 tarball SHA-512 with the `integrity` of `npm pack --dry-run` for that commit;
 `npm pack` is reproducible, so a match proves the archive is byte for byte what
-npm would pack. Only then it publishes that exact tarball. npm inherits the terminal, so its interactive
+npm would pack. Only then it publishes that exact tarball. `prepublishOnly` runs
+`beez-rp guard-publish`, which stops a manual `pnpm publish` (or yarn/bun): publish
+only through `pnpm create-version`, which publishes with npm. npm inherits the terminal, so its interactive
 browser or one-time-password confirmation still works.
 
 ## License

@@ -44,6 +44,7 @@
     "benchmark:memory": "pnpm build && node benchmarks/memory.js",
     "build": "node scripts/build.js",
     "prepack": "pnpm build",
+    "prepublishOnly": "beez-rp guard-publish",
     "check": "node scripts/check.js"
   },
   "peerDependencies": {
